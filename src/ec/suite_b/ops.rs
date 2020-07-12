@@ -1259,3 +1259,4 @@ macro_rules! bench_curve {
 mod elem;
 pub mod p256;
 pub mod p384;
+pub mod sm2p256;

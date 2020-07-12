@@ -135,6 +135,9 @@ pub static HMAC_SHA384: Algorithm = Algorithm(&digest::SHA384);
 /// HMAC using SHA-512.
 pub static HMAC_SHA512: Algorithm = Algorithm(&digest::SHA512);
 
+/// HMAC using SM3.
+pub static HMAC_SM3: Algorithm = Algorithm(&digest::SM3_256);
+
 /// A deprecated alias for `Tag`.
 #[deprecated(note = "`Signature` was renamed to `Tag`. This alias will be removed soon.")]
 pub type Signature = Tag;

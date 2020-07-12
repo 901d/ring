@@ -45,6 +45,7 @@ enum AlgorithmID {
     ECDSA_P384_SHA384_FIXED_SIGNING,
     ECDSA_P256_SHA256_ASN1_SIGNING,
     ECDSA_P384_SHA384_ASN1_SIGNING,
+    ECDSA_SM2P256_SM3_ASN1_SIGNING,
 }
 
 derive_debug_via_id!(EcdsaSigningAlgorithm);

@@ -45,6 +45,9 @@ pub static HKDF_SHA384: Algorithm = Algorithm(hmac::HMAC_SHA384);
 /// HKDF using HMAC-SHA-512.
 pub static HKDF_SHA512: Algorithm = Algorithm(hmac::HMAC_SHA512);
 
+/// HKDF using HMAC-SM3.
+pub static HKDF_SM3: Algorithm = Algorithm(hmac::HMAC_SM3);
+
 impl KeyType for Algorithm {
     fn len(&self) -> usize {
         self.0.digest_algorithm().output_len
