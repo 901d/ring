@@ -35,7 +35,7 @@ pub static COMMON_OPS: CommonOps = CommonOps {
             0xfffffffe
         ],
         rr: p256_limbs![
-            0x00000003, 0x00000000, 0xffffffff, 0xfffffffb, 0xfffffffe, 0xffffffff, 0xfffffffd,
+            0x00000003, 0x00000002, 0xffffffff, 0x00000002, 0x00000001, 0x00000001, 0x00000002,
             0x00000004
         ],
     },
@@ -51,16 +51,16 @@ pub static COMMON_OPS: CommonOps = CommonOps {
 
     a: Elem {
         limbs: p256_limbs![
-            0xfffffffc, 0xffffffff, 0x00000000, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff,
-            0xfffffffe
+            0xfffffffc, 0xffffffff, 0x00000003, 0xfffffffc, 0xffffffff, 0xffffffff, 0xffffffff,
+            0xfffffffb
         ],
         m: PhantomData,
         encoding: PhantomData, // R
     },
     b: Elem {
         limbs: p256_limbs![
-            0x4d940e93, 0xddbcbd41, 0x15ab8f92, 0xf39789f5, 0xcf6509a7, 0x4d5a9e4b, 0x9d9f5e34,
-            0x28e9fa9e
+            0x2bc0dd42, 0x90d23063, 0xe9b537ab, 0x71cf379a, 0x5ea51c3c, 0x52798150, 0xba20e2c8,
+            0x240fe188
         ],
         m: PhantomData,
         encoding: PhantomData, // R
@@ -162,16 +162,16 @@ fn p256_point_mul_base_impl(g_scalar: &Scalar) -> Point {
             static GENERATOR: (Elem<R>, Elem<R>) = (
                 Elem {
                     limbs: p256_limbs![
-                    0x18a9143c, 0x79e730d4, 0x5fedb601, 0x75ba95fc, 0x77622510, 0x79fb732b,
-                    0xa53755c6, 0x18905f76
+                    0xf418029e, 0x61328990, 0xdca6c050, 0x3e7981ed, 0xac24c3c3, 0xd6a1ed99,
+                    0xe1c13b05, 0x91167a5e
                 ],
                     m: PhantomData,
                     encoding: PhantomData,
                 },
                 Elem {
                     limbs: p256_limbs![
-                    0xce95560a, 0xddf25357, 0xba19e45c, 0x8b4ab8e4, 0xdd21f325, 0xd2e88688,
-                    0x25885d85, 0x8571ff18
+                    0x3c2d0ddd, 0xc1354e59, 0x8d3295fa, 0xc1f5e578, 0x6e2a48f8, 0x8d4cfb06,
+                    0x81d735bd, 0x63cd65d4
                 ],
                     m: PhantomData,
                     encoding: PhantomData,
@@ -218,8 +218,8 @@ pub static PRIVATE_SCALAR_OPS: PrivateScalarOps = PrivateScalarOps {
 
     oneRR_mod_n: Scalar {
         limbs: p256_limbs![
-            0xbe79eea2, 0x83244c95, 0x49bd6fa6, 0x4699799c, 0x2b6bec59, 0x2845b239, 0xf3d95620,
-            0x66e12d94
+            0x7c114f20, 0x901192af, 0xde6fa2fa, 0x3464504a, 0x3affe0d4, 0x620fc84c, 0xa22b3d3b,
+            0x1eb5e412
         ],
         m: PhantomData,
         encoding: PhantomData, // R
@@ -266,8 +266,8 @@ fn p256_scalar_inv_to_mont(a: &Scalar<Unencoded>) -> Scalar<R> {
     fn to_mont(a: &Scalar) -> Scalar<R> {
         static N_RR: Scalar<Unencoded> = Scalar {
             limbs: p256_limbs![
-                0xbe79eea2, 0x83244c95, 0x49bd6fa6, 0x4699799c, 0x2b6bec59, 0x2845b239, 0xf3d95620,
-                0x66e12d94
+                0x7c114f20, 0x901192af, 0xde6fa2fa, 0x3464504a, 0x3affe0d4, 0x620fc84c, 0xa22b3d3b,
+                0x1eb5e412
             ],
             m: PhantomData,
             encoding: PhantomData,
