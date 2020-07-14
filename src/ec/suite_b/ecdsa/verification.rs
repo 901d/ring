@@ -38,7 +38,7 @@ pub struct EcdsaVerificationAlgorithm {
     id: AlgorithmID,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum AlgorithmID {
     ECDSA_P256_SHA256_ASN1,
     ECDSA_P256_SHA256_FIXED,
@@ -46,6 +46,7 @@ enum AlgorithmID {
     ECDSA_P384_SHA256_ASN1,
     ECDSA_P384_SHA384_ASN1,
     ECDSA_P384_SHA384_FIXED,
+    ECDSA_SM2P256_SM3_ASN1,
 }
 
 derive_debug_via_id!(EcdsaVerificationAlgorithm);
@@ -57,6 +58,10 @@ impl signature::VerificationAlgorithm for EcdsaVerificationAlgorithm {
         msg: untrusted::Input,
         signature: untrusted::Input,
     ) -> Result<(), error::Unspecified> {
+        if self.id == AlgorithmID::ECDSA_SM2P256_SM3_ASN1 {
+            // sm2 verify
+
+        }
         let e = {
             // NSA Guide Step 2: "Use the selected hash function to compute H =
             // Hash(M)."
@@ -163,7 +168,6 @@ impl EcdsaVerificationAlgorithm {
                 return Ok(());
             }
         }
-
         Err(error::Unspecified)
     }
 }
@@ -283,6 +287,13 @@ pub static ECDSA_P384_SHA384_ASN1: EcdsaVerificationAlgorithm = EcdsaVerificatio
     digest_alg: &digest::SHA384,
     split_rs: split_rs_asn1,
     id: AlgorithmID::ECDSA_P384_SHA384_ASN1,
+};
+
+pub static ECDSA_SM2P256_SM3_ASN1: EcdsaVerificationAlgorithm = EcdsaVerificationAlgorithm {
+    ops: &sm2p256::PUBLIC_SCALAR_OPS,
+    digest_alg: &digest::SM3_256,
+    split_rs: split_rs_asn1,
+    id: AlgorithmID::ECDSA_SM2P256_SM3_ASN1,
 };
 
 #[cfg(test)]

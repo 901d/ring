@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 // todo copyright
 
 // Copyright 2016 Brian Smith.

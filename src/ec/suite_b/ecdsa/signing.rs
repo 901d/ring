@@ -13,6 +13,7 @@
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 //! ECDSA Signatures using the P-256 and P-384 curves.
+#![allow(dead_code)]
 
 use super::digest_scalar::digest_scalar;
 use crate::{
@@ -27,6 +28,8 @@ use crate::{
     limb, pkcs8, rand, sealed, signature,
 };
 use untrusted;
+use core::marker::PhantomData;
+use libsm::sm2;
 
 /// An ECDSA signing algorithm.
 pub struct EcdsaSigningAlgorithm {
@@ -86,6 +89,9 @@ impl EcdsaKeyPair {
         alg: &'static EcdsaSigningAlgorithm,
         rng: &dyn rand::SecureRandom,
     ) -> Result<pkcs8::Document, error::Unspecified> {
+        if alg.id == AlgorithmID::ECDSA_SM2P256_SM3_ASN1_SIGNING {
+            panic!("sm2 algorithm not support")
+        }
         let private_key = ec::Seed::generate(alg.curve, rng, cpu::features())?;
         let public_key = private_key.compute_public_key()?;
         Ok(pkcs8::wrap_key(
@@ -109,6 +115,13 @@ impl EcdsaKeyPair {
         alg: &'static EcdsaSigningAlgorithm,
         pkcs8: &[u8],
     ) -> Result<Self, error::KeyRejected> {
+        if alg.id == AlgorithmID::ECDSA_SM2P256_SM3_ASN1_SIGNING {
+            // sm2 not have pkcs8 format, handle data as raw private key
+            let seed = ec::Seed::from_bytes(alg.curve, untrusted::Input::from(pkcs8), cpu::features()).unwrap();
+            let key_pair = ec::KeyPair::derive(seed).unwrap();
+            let rng = rand::SystemRandom::new();
+            return Self::new(alg, key_pair, &rng);
+        }
         let key_pair = ec::suite_b::key_pair_from_pkcs8(
             alg.curve,
             alg.pkcs8_template,
@@ -157,12 +170,28 @@ impl EcdsaKeyPair {
     ) -> Result<Self, error::KeyRejected> {
         let (seed, public_key) = key_pair.split();
         let d = private_key::private_key_as_scalar(alg.private_key_ops, &seed);
+
+        if alg.id == AlgorithmID::ECDSA_SM2P256_SM3_ASN1_SIGNING {
+            let nonce_key = NonceRandomKey::new(alg, seed, rng)?;
+            let d: Scalar<R> = Scalar {
+                limbs: d.limbs,
+                m: PhantomData,
+                encoding: PhantomData,
+            };
+            return Ok(Self {
+                d,
+                nonce_key,
+                alg,
+                public_key: PublicKey(public_key),
+            });
+        }
+
         let d = alg
             .private_scalar_ops
             .scalar_ops
             .scalar_product(&d, &alg.private_scalar_ops.oneRR_mod_n);
 
-        let nonce_key = NonceRandomKey::new(alg, &seed, rng)?;
+        let nonce_key = NonceRandomKey::new(alg, seed, rng)?;
         Ok(Self {
             d,
             nonce_key,
@@ -178,6 +207,16 @@ impl EcdsaKeyPair {
         rng: &dyn rand::SecureRandom,
         message: &[u8],
     ) -> Result<signature::Signature, error::Unspecified> {
+        if self.alg.id == AlgorithmID::ECDSA_SM2P256_SM3_ASN1_SIGNING {
+            let ctx = sm2::signature::SigCtx::new();
+            let sk = self.d.to_big_uint(self.alg.private_key_ops.common.num_limbs);
+            let raw_sig = ctx.sign(message, &sk, &ctx.pk_from_sk(&sk));
+            let der_sig = raw_sig.der_encode();
+            return Ok(signature::Signature::new(move |value| {
+                value.copy_from_slice(&der_sig);
+                der_sig.len()
+            }));
+        }
         // Step 4 (out of order).
         let h = digest::digest(self.alg.digest_alg, message);
 
@@ -346,7 +385,7 @@ struct NonceRandomKey(digest::Digest);
 impl NonceRandomKey {
     fn new(
         alg: &EcdsaSigningAlgorithm,
-        seed: &ec::Seed,
+        seed: ec::Seed,
         rng: &dyn rand::SecureRandom,
     ) -> Result<Self, error::KeyRejected> {
         let mut rand = [0; digest::MAX_OUTPUT_LEN];
@@ -500,6 +539,16 @@ pub static ECDSA_P384_SHA384_ASN1_SIGNING: EcdsaSigningAlgorithm = EcdsaSigningA
     pkcs8_template: &EC_PUBLIC_KEY_P384_PKCS8_V1_TEMPLATE,
     format_rs: format_rs_asn1,
     id: AlgorithmID::ECDSA_P384_SHA384_ASN1_SIGNING,
+};
+
+pub static ECDSA_SM2P256_SM3_ASN1_SIGNING: EcdsaSigningAlgorithm = EcdsaSigningAlgorithm {
+    curve: &ec::suite_b::curve::SM2P256,
+    private_scalar_ops: &sm2p256::PRIVATE_SCALAR_OPS,
+    private_key_ops: &sm2p256::PRIVATE_KEY_OPS,
+    digest_alg: &digest::SM3_256,
+    pkcs8_template: &EC_PUBLIC_KEY_P256_PKCS8_V1_TEMPLATE,
+    format_rs: format_rs_asn1,
+    id: AlgorithmID::ECDSA_SM2P256_SM3_ASN1_SIGNING,
 };
 
 static EC_PUBLIC_KEY_P256_PKCS8_V1_TEMPLATE: pkcs8::Template = pkcs8::Template {

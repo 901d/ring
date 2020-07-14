@@ -145,6 +145,7 @@ fn signature_ecdsa_verify_asn1_test() {
                 ("P-256", "SHA384") => &signature::ECDSA_P256_SHA384_ASN1,
                 ("P-384", "SHA256") => &signature::ECDSA_P384_SHA256_ASN1,
                 ("P-384", "SHA384") => &signature::ECDSA_P384_SHA384_ASN1,
+                ("SM2-P-256", "SM3") => &signature::ECDSA_SM2P256_SM3_ASN1,
                 _ => {
                     panic!("Unsupported curve+digest: {}+{}", curve_name, digest_name);
                 }
