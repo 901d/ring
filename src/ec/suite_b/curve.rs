@@ -109,10 +109,8 @@ fn sm2p256_public_from_private(public_out: &mut [u8], private_key: &ec::Seed) ->
     debug_assert_eq!(public_out.len(), 65);
     let sk = BigUint::from_bytes_be(private_key.bytes_less_safe());
     let ctx = sm2::signature::SigCtx::new();
+    let ecctx = sm2::ecc::EccCtx::new();
     let pk_raw_point = ctx.pk_from_sk(&sk);
-    public_out[0] = 4;
-    let (x_out, y_out) = (&mut public_out[1..]).split_at_mut(32);
-    x_out.copy_from_slice(&pk_raw_point.x.to_bytes());
-    y_out.copy_from_slice(&pk_raw_point.y.to_bytes());
+    public_out.copy_from_slice(&ecctx.point_to_bytes(&pk_raw_point, false));
     Ok(())
 }

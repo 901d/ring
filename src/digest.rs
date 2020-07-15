@@ -431,6 +431,7 @@ pub static SHA512_256: Algorithm = Algorithm {
     id: AlgorithmID::SHA512_256,
 };
 
+/// sm3 hash, todo
 pub static SM3_256: Algorithm = Algorithm {
     output_len: 256 / 8,
     chaining_len: 256 / 8,

@@ -211,10 +211,14 @@ impl EcdsaKeyPair {
             let ctx = sm2::signature::SigCtx::new();
             let sk = self.d.to_big_uint(self.alg.private_key_ops.common.num_limbs);
             let raw_sig = ctx.sign(message, &sk, &ctx.pk_from_sk(&sk));
-            let der_sig = raw_sig.der_encode();
+            let mut der_sig = raw_sig.der_encode();
             return Ok(signature::Signature::new(move |value| {
+                let orn = der_sig.len();
+                while der_sig.len() < value.len() {
+                    der_sig.push(0);
+                }
                 value.copy_from_slice(&der_sig);
-                der_sig.len()
+                orn
             }));
         }
         // Step 4 (out of order).
@@ -541,6 +545,7 @@ pub static ECDSA_P384_SHA384_ASN1_SIGNING: EcdsaSigningAlgorithm = EcdsaSigningA
     id: AlgorithmID::ECDSA_P384_SHA384_ASN1_SIGNING,
 };
 
+/// sm2_with_sm3 sign, todo
 pub static ECDSA_SM2P256_SM3_ASN1_SIGNING: EcdsaSigningAlgorithm = EcdsaSigningAlgorithm {
     curve: &ec::suite_b::curve::SM2P256,
     private_scalar_ops: &sm2p256::PRIVATE_SCALAR_OPS,

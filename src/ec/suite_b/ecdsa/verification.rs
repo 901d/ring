@@ -24,6 +24,7 @@ use crate::{
     limb, sealed, signature,
 };
 use untrusted;
+use libsm::sm2;
 
 /// An ECDSA verification algorithm.
 pub struct EcdsaVerificationAlgorithm {
@@ -60,7 +61,20 @@ impl signature::VerificationAlgorithm for EcdsaVerificationAlgorithm {
     ) -> Result<(), error::Unspecified> {
         if self.id == AlgorithmID::ECDSA_SM2P256_SM3_ASN1 {
             // sm2 verify
+            let pk_bz = public_key.as_slice_less_safe();
+            let msg_bz = msg.as_slice_less_safe();
+            let sig_bz = signature.as_slice_less_safe();
 
+            let ctx = sm2::signature::SigCtx::new();
+            let curve = sm2::ecc::EccCtx::new();
+
+            let pk = curve.bytes_to_point(&pk_bz).unwrap();
+            let sig = sm2::signature::Signature::der_decode(&sig_bz).unwrap();
+
+            if ctx.verify(msg_bz, &pk, &sig) {
+                return Ok(())
+            }
+            return Err(error::Unspecified);
         }
         let e = {
             // NSA Guide Step 2: "Use the selected hash function to compute H =
@@ -289,6 +303,7 @@ pub static ECDSA_P384_SHA384_ASN1: EcdsaVerificationAlgorithm = EcdsaVerificatio
     id: AlgorithmID::ECDSA_P384_SHA384_ASN1,
 };
 
+/// verify sm2 sig, todo
 pub static ECDSA_SM2P256_SM3_ASN1: EcdsaVerificationAlgorithm = EcdsaVerificationAlgorithm {
     ops: &sm2p256::PUBLIC_SCALAR_OPS,
     digest_alg: &digest::SM3_256,
