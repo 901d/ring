@@ -5,15 +5,15 @@ categories = ["cryptography", "no-std"]
 description = "Safe, fast, small crypto using Rust."
 documentation = "https://briansmith.org/rustdoc/ring/"
 edition = "2018"
-keywords = ["crypto", "cryptography", "rand", "ECC", "RSA"]
+keywords = ["crypto", "cryptography", "rand", "ECC", "RSA", "SMx"]
 license-file = "LICENSE"
 name = "ring"
 readme = "doc/link-to-readme.md"
-repository = "https://github.com/briansmith/ring"
+repository = "https://github.com/Pencil-Yao/ring"
 version = "0.16.15"
 
 # Prevent multiple versions of *ring* from being linked into the same program.
-links = "ring-asm"
+# links = "ring-asm"
 
 include = [
     "LICENSE",

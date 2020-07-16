@@ -89,9 +89,6 @@ impl EcdsaKeyPair {
         alg: &'static EcdsaSigningAlgorithm,
         rng: &dyn rand::SecureRandom,
     ) -> Result<pkcs8::Document, error::Unspecified> {
-        if alg.id == AlgorithmID::ECDSA_SM2P256_SM3_ASN1_SIGNING {
-            panic!("sm2 algorithm not support")
-        }
         let private_key = ec::Seed::generate(alg.curve, rng, cpu::features())?;
         let public_key = private_key.compute_public_key()?;
         Ok(pkcs8::wrap_key(
@@ -115,13 +112,6 @@ impl EcdsaKeyPair {
         alg: &'static EcdsaSigningAlgorithm,
         pkcs8: &[u8],
     ) -> Result<Self, error::KeyRejected> {
-        if alg.id == AlgorithmID::ECDSA_SM2P256_SM3_ASN1_SIGNING {
-            // sm2 not have pkcs8 format, handle data as raw private key
-            let seed = ec::Seed::from_bytes(alg.curve, untrusted::Input::from(pkcs8), cpu::features()).unwrap();
-            let key_pair = ec::KeyPair::derive(seed).unwrap();
-            let rng = rand::SystemRandom::new();
-            return Self::new(alg, key_pair, &rng);
-        }
         let key_pair = ec::suite_b::key_pair_from_pkcs8(
             alg.curve,
             alg.pkcs8_template,
@@ -568,6 +558,13 @@ static EC_PUBLIC_KEY_P384_PKCS8_V1_TEMPLATE: pkcs8::Template = pkcs8::Template {
     alg_id_range: core::ops::Range { start: 8, end: 24 },
     curve_id_index: 9,
     private_key_index: 0x23,
+};
+
+static EC_PUBLIC_KEY_SM2P256_PKCS8_V1_TEMPLATE: pkcs8::Template = pkcs8::Template {
+    bytes: include_bytes!("ecPublicKey_sm2p256_pkcs8_v1_template.der"),
+    alg_id_range: core::ops::Range { start: 8, end: 27 },
+    curve_id_index: 9,
+    private_key_index: 0x24,
 };
 
 #[cfg(test)]
