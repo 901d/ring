@@ -541,7 +541,7 @@ pub static ECDSA_SM2P256_SM3_ASN1_SIGNING: EcdsaSigningAlgorithm = EcdsaSigningA
     private_scalar_ops: &sm2p256::PRIVATE_SCALAR_OPS,
     private_key_ops: &sm2p256::PRIVATE_KEY_OPS,
     digest_alg: &digest::SM3_256,
-    pkcs8_template: &EC_PUBLIC_KEY_P256_PKCS8_V1_TEMPLATE,
+    pkcs8_template: &EC_PUBLIC_KEY_SM2P256_PKCS8_V1_TEMPLATE,
     format_rs: format_rs_asn1,
     id: AlgorithmID::ECDSA_SM2P256_SM3_ASN1_SIGNING,
 };
