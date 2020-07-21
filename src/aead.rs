@@ -26,7 +26,7 @@ use crate::{constant_time, cpu, error, hkdf, polyfill};
 use core::ops::RangeFrom;
 
 pub use self::{
-    aes_gcm::{AES_128_GCM, AES_256_GCM},
+    aes_gcm::{AES_128_GCM, AES_256_GCM, AES_128_GCM_SM},
     chacha20_poly1305::CHACHA20_POLY1305,
     nonce::{Nonce, NONCE_LEN},
 };
@@ -622,6 +622,7 @@ enum AlgorithmID {
     AES_128_GCM,
     AES_256_GCM,
     CHACHA20_POLY1305,
+    AES_128_GCM_SM,
 }
 
 impl PartialEq for Algorithm {

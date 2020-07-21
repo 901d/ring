@@ -38,6 +38,16 @@ pub static AES_256_GCM: aead::Algorithm = aead::Algorithm {
     max_input_len: AES_GCM_MAX_INPUT_LEN,
 };
 
+/// fork AES_128_GCM
+pub static AES_128_GCM_SM: aead::Algorithm = aead::Algorithm {
+    key_len: 16,
+    init: init_128,
+    seal: aes_gcm_seal,
+    open: aes_gcm_open,
+    id: aead::AlgorithmID::AES_128_GCM_SM,
+    max_input_len: AES_GCM_MAX_INPUT_LEN,
+};
+
 pub struct Key {
     gcm_key: gcm::Key, // First because it has a large alignment requirement.
     aes_key: aes::Key,
