@@ -70,9 +70,9 @@
     unused_extern_crates,
     unused_import_braces,
     unused_results,
-    warnings
+    // warnings
 )]
-#![no_std]
+// #![no_std]
 #![cfg_attr(feature = "internal_benches", allow(unstable_features), feature(test))]
 
 #[cfg(feature = "alloc")]

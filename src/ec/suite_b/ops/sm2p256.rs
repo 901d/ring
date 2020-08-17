@@ -67,18 +67,18 @@ pub static COMMON_OPS: CommonOps = CommonOps {
         encoding: PhantomData, // R
     },
 
-    elem_add_impl: GFp_nistz256_add,
-    elem_mul_mont: GFp_nistz256_mul_mont,
-    elem_sqr_mont: GFp_nistz256_sqr_mont,
+    elem_add_impl: norop::Norop_sm2p256_add,
+    elem_mul_mont: norop::Norop_sm2p256_mul_mont,
+    elem_sqr_mont: norop::Norop_sm2p256_sqr_mont,
 
-    point_add_jacobian_impl: GFp_nistz256_point_add,
+    point_add_jacobian_impl: norop::Norop_sm2p256_point_add,
 };
 
 pub static PRIVATE_KEY_OPS: PrivateKeyOps = PrivateKeyOps {
     common: &COMMON_OPS,
     elem_inv_squared: p256_elem_inv_squared,
     point_mul_base_impl: p256_point_mul_base_impl,
-    point_mul_impl: GFp_nistz256_point_mul,
+    point_mul_impl: norop::Norop_sm2p256_point_mul,
 };
 
 fn p256_elem_inv_squared(a: &Elem<R>) -> Elem<R> {
@@ -141,53 +141,31 @@ fn p256_elem_inv_squared(a: &Elem<R>) -> Elem<R> {
 fn p256_point_mul_base_impl(g_scalar: &Scalar) -> Point {
     let mut r = Point::new_at_infinity();
 
-    // Keep this in sync with the logic for defining `GFp_USE_LARGE_TABLE` and
-    // with the logic for deciding whether to test `GFp_nistz256_point_add_affine`
-    // in suite_b/ops.rs.
+    static GENERATOR: (Elem<R>, Elem<R>) = (
+        Elem {
+            limbs: p256_limbs![
+            0xf418029e, 0x61328990, 0xdca6c050, 0x3e7981ed, 0xac24c3c3, 0xd6a1ed99,
+            0xe1c13b05, 0x91167a5e
+        ],
+            m: PhantomData,
+            encoding: PhantomData,
+        },
+        Elem {
+            limbs: p256_limbs![
+            0x3c2d0ddd, 0xc1354e59, 0x8d3295fa, 0xc1f5e578, 0x6e2a48f8, 0x8d4cfb06,
+            0x81d735bd, 0x63cd65d4
+        ],
+            m: PhantomData,
+            encoding: PhantomData,
+        },
+    );
 
-    #[cfg(any(target_arch = "aarch64", target_arch = "x86", target_arch = "x86_64"))]
-        {
-            extern "C" {
-                fn GFp_nistz256_point_mul_base(
-                    r: *mut Limb,          // [3][COMMON_OPS.num_limbs]
-                    g_scalar: *const Limb, // [COMMON_OPS.num_limbs]
-                );
-            }
-            unsafe {
-                GFp_nistz256_point_mul_base(r.xyz.as_mut_ptr(), g_scalar.limbs.as_ptr());
-            }
-        }
-
-    #[cfg(not(any(target_arch = "aarch64", target_arch = "x86", target_arch = "x86_64")))]
-        {
-            static GENERATOR: (Elem<R>, Elem<R>) = (
-                Elem {
-                    limbs: p256_limbs![
-                    0xf418029e, 0x61328990, 0xdca6c050, 0x3e7981ed, 0xac24c3c3, 0xd6a1ed99,
-                    0xe1c13b05, 0x91167a5e
-                ],
-                    m: PhantomData,
-                    encoding: PhantomData,
-                },
-                Elem {
-                    limbs: p256_limbs![
-                    0x3c2d0ddd, 0xc1354e59, 0x8d3295fa, 0xc1f5e578, 0x6e2a48f8, 0x8d4cfb06,
-                    0x81d735bd, 0x63cd65d4
-                ],
-                    m: PhantomData,
-                    encoding: PhantomData,
-                },
-            );
-
-            unsafe {
-                GFp_nistz256_point_mul(
-                    r.xyz.as_mut_ptr(),
-                    g_scalar.limbs.as_ptr(),
-                    GENERATOR.0.limbs.as_ptr(),
-                    GENERATOR.1.limbs.as_ptr(),
-                );
-            }
-        }
+    norop::Norop_sm2p256_point_mul(
+        r.xyz.as_mut_ptr(),
+        g_scalar.limbs.as_ptr(),
+        GENERATOR.0.limbs.as_ptr(),
+        GENERATOR.1.limbs.as_ptr(),
+    );
 
     r
 }
@@ -199,7 +177,7 @@ pub static PUBLIC_KEY_OPS: PublicKeyOps = PublicKeyOps {
 pub static SCALAR_OPS: ScalarOps = ScalarOps {
     common: &COMMON_OPS,
     scalar_inv_to_mont_impl: p256_scalar_inv_to_mont,
-    scalar_mul_mont: GFp_p256_scalar_mul_mont,
+    scalar_mul_mont: norop::Norop_sm2p256_scalar_mul_mont,
 };
 
 pub static PUBLIC_SCALAR_OPS: PublicScalarOps = PublicScalarOps {
@@ -239,29 +217,27 @@ fn p256_scalar_inv_to_mont(a: &Scalar<Unencoded>) -> Scalar<R> {
 
     #[inline]
     fn mul(a: &Scalar<R>, b: &Scalar<R>) -> Scalar<R> {
-        binary_op(GFp_p256_scalar_mul_mont, a, b)
+        binary_op(norop::Norop_sm2p256_scalar_mul_mont, a, b)
     }
 
     #[inline]
     fn sqr(a: &Scalar<R>) -> Scalar<R> {
-        unary_op(GFp_p256_scalar_sqr_mont, a)
+        unary_op(norop::Norop_sm2p256_scalar_sqr_mont, a)
     }
 
     // Returns (`a` squared `squarings` times) * `b`.
     fn sqr_mul(a: &Scalar<R>, squarings: Limb, b: &Scalar<R>) -> Scalar<R> {
         debug_assert!(squarings >= 1);
         let mut tmp = Scalar::zero();
-        unsafe { GFp_p256_scalar_sqr_rep_mont(tmp.limbs.as_mut_ptr(), a.limbs.as_ptr(), squarings) }
+        norop::Norop_sm2p256_scalar_sqr_rep_mont(tmp.limbs.as_mut_ptr(), a.limbs.as_ptr(), squarings);
         mul(&tmp, b)
     }
 
     // Sets `acc` = (`acc` squared `squarings` times) * `b`.
     fn sqr_mul_acc(acc: &mut Scalar<R>, squarings: Limb, b: &Scalar<R>) {
         debug_assert!(squarings >= 1);
-        unsafe {
-            GFp_p256_scalar_sqr_rep_mont(acc.limbs.as_mut_ptr(), acc.limbs.as_ptr(), squarings)
-        }
-        binary_op_assign(GFp_p256_scalar_mul_mont, acc, b);
+        norop::Norop_sm2p256_scalar_sqr_rep_mont(acc.limbs.as_mut_ptr(), acc.limbs.as_ptr(), squarings);
+        binary_op_assign(norop::Norop_sm2p256_scalar_mul_mont, acc, b);
     }
 
     fn to_mont(a: &Scalar) -> Scalar<R> {
@@ -273,7 +249,7 @@ fn p256_scalar_inv_to_mont(a: &Scalar<Unencoded>) -> Scalar<R> {
             m: PhantomData,
             encoding: PhantomData,
         };
-        binary_op(GFp_p256_scalar_mul_mont, a, &N_RR)
+        binary_op(norop::Norop_sm2p256_scalar_mul_mont, a, &N_RR)
     }
 
     // Indexes into `d`.
@@ -363,50 +339,6 @@ fn p256_scalar_inv_to_mont(a: &Scalar<Unencoded>) -> Scalar<R> {
     }
 
     acc
-}
-
-extern "C" {
-    fn GFp_nistz256_add(
-        r: *mut Limb,   // [COMMON_OPS.num_limbs]
-        a: *const Limb, // [COMMON_OPS.num_limbs]
-        b: *const Limb, // [COMMON_OPS.num_limbs]
-    );
-    fn GFp_nistz256_mul_mont(
-        r: *mut Limb,   // [COMMON_OPS.num_limbs]
-        a: *const Limb, // [COMMON_OPS.num_limbs]
-        b: *const Limb, // [COMMON_OPS.num_limbs]
-    );
-    fn GFp_nistz256_sqr_mont(
-        r: *mut Limb,   // [COMMON_OPS.num_limbs]
-        a: *const Limb, // [COMMON_OPS.num_limbs]
-    );
-
-    fn GFp_nistz256_point_add(
-        r: *mut Limb,   // [3][COMMON_OPS.num_limbs]
-        a: *const Limb, // [3][COMMON_OPS.num_limbs]
-        b: *const Limb, // [3][COMMON_OPS.num_limbs]
-    );
-    fn GFp_nistz256_point_mul(
-        r: *mut Limb,          // [3][COMMON_OPS.num_limbs]
-        p_scalar: *const Limb, // [COMMON_OPS.num_limbs]
-        p_x: *const Limb,      // [COMMON_OPS.num_limbs]
-        p_y: *const Limb,      // [COMMON_OPS.num_limbs]
-    );
-
-    fn GFp_p256_scalar_mul_mont(
-        r: *mut Limb,   // [COMMON_OPS.num_limbs]
-        a: *const Limb, // [COMMON_OPS.num_limbs]
-        b: *const Limb, // [COMMON_OPS.num_limbs]
-    );
-    fn GFp_p256_scalar_sqr_mont(
-        r: *mut Limb,   // [COMMON_OPS.num_limbs]
-        a: *const Limb, // [COMMON_OPS.num_limbs]
-    );
-    fn GFp_p256_scalar_sqr_rep_mont(
-        r: *mut Limb,   // [COMMON_OPS.num_limbs]
-        a: *const Limb, // [COMMON_OPS.num_limbs]
-        rep: Limb,
-    );
 }
 
 #[cfg(feature = "internal_benches")]

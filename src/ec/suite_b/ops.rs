@@ -658,6 +658,11 @@ mod tests {
         elem_mul_test(&p384::COMMON_OPS, test_file!("ops/p384_elem_mul_tests.txt"));
     }
 
+    // #[test]
+    // fn sm2p256_elem_mul_test() {
+    //     elem_mul_test(&sm2p256::COMMON_OPS, test_file!("ops/sm2p256_elem_mul_tests.txt"));
+    // }
+
     fn elem_mul_test(ops: &CommonOps, test_file: test::File) {
         test::run(test_file, |section, test_case| {
             assert_eq!(section, "");
@@ -1260,3 +1265,4 @@ mod elem;
 pub mod p256;
 pub mod p384;
 pub mod sm2p256;
+pub mod norop;

@@ -17,7 +17,7 @@ use crate::{
     limb::{Limb, LIMB_BITS},
 };
 use core::marker::PhantomData;
-use num_bigint::{BigUint, BigDigit};
+use num_bigint::BigUint;
 use alloc::vec::Vec;
 
 /// Elements of ℤ/mℤ for some modulus *m*. Elements are always fully reduced
@@ -49,12 +49,12 @@ impl<M, E: Encoding> Elem<M, E> {
 
     pub fn to_big_uint(&self, len: usize) -> BigUint {
         assert!(MAX_LIMBS >= len);
-        let mut big_dit_array: Vec<BigDigit> = Vec::new();
+        let mut big_dit_array: Vec<u32> = Vec::new();
         let mut lc = self.limbs.clone();
         if LIMB_BITS == 64 {
             for i in 0..len {
                 for _j in 0..2 {
-                    big_dit_array.push(lc[i] as BigDigit);
+                    big_dit_array.push(lc[i] as u32);
                     lc[i] = lc[i] >> 32;
                 }
             }

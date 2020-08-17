@@ -295,8 +295,10 @@ name = "ring"
 
 [dependencies]
 untrusted = { version = "0.7.1" }
-libsm = { git = "https://github.com/citahub/libsm", rev = "4d0e6199fca0934c58131de1d0036e9aa4da26c1" }
-num-bigint = "0.1"
+libsm = { git = "https://github.com/citahub/libsm", branch = "smx" }
+num-bigint = "0.2"
+num-traits = "0.2.11"
+hex = "0.3"
 
 [target.'cfg(all(any(target_arch = "aarch64", target_arch = "arm", target_arch = "x86", target_arch = "x86_64"), not(target_os = "ios")))'.dependencies]
 spin = { version = "0.5.2", default-features = false }
