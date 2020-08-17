@@ -84,7 +84,7 @@ ecdh!(
     "SM2-P-256 (sm2p256)",
     &sm2p256::PRIVATE_KEY_OPS,
     &sm2p256::PUBLIC_KEY_OPS,
-    p256_ecdh
+    sm2p256_ecdh
 );
 
 fn ecdh(

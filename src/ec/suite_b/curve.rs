@@ -14,8 +14,8 @@
 #![allow(dead_code)]
 
 use crate::{ec, error, rand};
-use libsm::sm2;
-use num_bigint::BigUint;
+// use libsm::sm2;
+// use num_bigint::BigUint;
 
 /// A key agreement algorithm.
 macro_rules! suite_b_curve {
