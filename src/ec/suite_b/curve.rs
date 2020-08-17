@@ -85,32 +85,42 @@ suite_b_curve!(
     p384_public_from_private
 );
 
-pub static SM2P256: ec::Curve = ec::Curve {
-    public_key_len: 65,
-    elem_scalar_seed_len: 32,
-    id: ec::CurveID::SM2P256,
-    check_private_key_bytes: sm2p256_check_private_key_bytes,
-    generate_private_key: sm2p256_generate_private_key,
-    public_from_private: sm2p256_public_from_private,
-};
+suite_b_curve!(
+    SM2P256,
+    256,
+    &ec::suite_b::ops::sm2p256::PRIVATE_KEY_OPS,
+    ec::CurveID::SM2P256,
+    sm2p256_check_private_key_bytes,
+    sm2p256_generate_private_key,
+    sm2p256_public_from_private
+);
 
-fn sm2p256_check_private_key_bytes(bytes: &[u8]) -> Result<(), error::Unspecified> {
-    ec::suite_b::private_key::check_scalar_big_endian_bytes(&ec::suite_b::ops::sm2p256::PRIVATE_KEY_OPS, bytes)
-}
-
-fn sm2p256_generate_private_key(_rng: &dyn rand::SecureRandom, out: &mut [u8]) -> Result<(), error::Unspecified> {
-    let ctx = sm2::signature::SigCtx::new();
-    let (_pk, sk) = ctx.new_keypair();
-    out.copy_from_slice(&sk.to_bytes_be());
-    Ok(())
-}
-
-fn sm2p256_public_from_private(public_out: &mut [u8], private_key: &ec::Seed) -> Result<(), error::Unspecified> {
-    debug_assert_eq!(public_out.len(), 65);
-    let sk = BigUint::from_bytes_be(private_key.bytes_less_safe());
-    let ctx = sm2::signature::SigCtx::new();
-    let ecctx = sm2::ecc::EccCtx::new();
-    let pk_raw_point = ctx.pk_from_sk(&sk);
-    public_out.copy_from_slice(&ecctx.point_to_bytes(&pk_raw_point, false));
-    Ok(())
-}
+// pub static SM2P256: ec::Curve = ec::Curve {
+//     public_key_len: 65,
+//     elem_scalar_seed_len: 32,
+//     id: ec::CurveID::SM2P256,
+//     check_private_key_bytes: sm2p256_check_private_key_bytes,
+//     generate_private_key: sm2p256_generate_private_key,
+//     public_from_private: sm2p256_public_from_private,
+// };
+//
+// fn sm2p256_check_private_key_bytes(bytes: &[u8]) -> Result<(), error::Unspecified> {
+//     ec::suite_b::private_key::check_scalar_big_endian_bytes(&ec::suite_b::ops::sm2p256::PRIVATE_KEY_OPS, bytes)
+// }
+//
+// fn sm2p256_generate_private_key(_rng: &dyn rand::SecureRandom, out: &mut [u8]) -> Result<(), error::Unspecified> {
+//     let ctx = sm2::signature::SigCtx::new();
+//     let (_pk, sk) = ctx.new_keypair();
+//     out.copy_from_slice(&sk.to_bytes_be());
+//     Ok(())
+// }
+//
+// fn sm2p256_public_from_private(public_out: &mut [u8], private_key: &ec::Seed) -> Result<(), error::Unspecified> {
+//     debug_assert_eq!(public_out.len(), 65);
+//     let sk = BigUint::from_bytes_be(private_key.bytes_less_safe());
+//     let ctx = sm2::signature::SigCtx::new();
+//     let ecctx = sm2::ecc::EccCtx::new();
+//     let pk_raw_point = ctx.pk_from_sk(&sk);
+//     public_out.copy_from_slice(&ecctx.point_to_bytes(&pk_raw_point, false));
+//     Ok(())
+// }
