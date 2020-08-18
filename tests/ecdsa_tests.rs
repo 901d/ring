@@ -112,6 +112,7 @@ fn ecdsa_generate_pkcs8_test() {
         &signature::ECDSA_P256_SHA256_FIXED_SIGNING,
         &signature::ECDSA_P384_SHA384_ASN1_SIGNING,
         &signature::ECDSA_P384_SHA384_FIXED_SIGNING,
+        &signature::ECDSA_SM2P256_SM3_ASN1_SIGNING,
     ] {
         let pkcs8 = signature::EcdsaKeyPair::generate_pkcs8(alg, &rng).unwrap();
         println!();

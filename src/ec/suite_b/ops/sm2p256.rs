@@ -76,12 +76,12 @@ pub static COMMON_OPS: CommonOps = CommonOps {
 
 pub static PRIVATE_KEY_OPS: PrivateKeyOps = PrivateKeyOps {
     common: &COMMON_OPS,
-    elem_inv_squared: p256_elem_inv_squared,
-    point_mul_base_impl: p256_point_mul_base_impl,
+    elem_inv_squared: sm2p256_elem_inv_squared,
+    point_mul_base_impl: sm2p256_point_mul_base_impl,
     point_mul_impl: norop::Norop_sm2p256_point_mul,
 };
 
-fn p256_elem_inv_squared(a: &Elem<R>) -> Elem<R> {
+fn sm2p256_elem_inv_squared(a: &Elem<R>) -> Elem<R> {
     // Calculate a**-2 (mod q) == a**(q - 3) (mod q)
     //
     // The exponent (q - 3) is:
@@ -138,7 +138,7 @@ fn p256_elem_inv_squared(a: &Elem<R>) -> Elem<R> {
     acc
 }
 
-fn p256_point_mul_base_impl(g_scalar: &Scalar) -> Point {
+fn sm2p256_point_mul_base_impl(g_scalar: &Scalar) -> Point {
     let mut r = Point::new_at_infinity();
 
     static GENERATOR: (Elem<R>, Elem<R>) = (
@@ -176,7 +176,7 @@ pub static PUBLIC_KEY_OPS: PublicKeyOps = PublicKeyOps {
 
 pub static SCALAR_OPS: ScalarOps = ScalarOps {
     common: &COMMON_OPS,
-    scalar_inv_to_mont_impl: p256_scalar_inv_to_mont,
+    scalar_inv_to_mont_impl: sm2p256_scalar_inv_to_mont,
     scalar_mul_mont: norop::Norop_sm2p256_scalar_mul_mont,
 };
 
@@ -205,7 +205,7 @@ pub static PRIVATE_SCALAR_OPS: PrivateScalarOps = PrivateScalarOps {
     },
 };
 
-fn p256_scalar_inv_to_mont(a: &Scalar<Unencoded>) -> Scalar<R> {
+fn sm2p256_scalar_inv_to_mont(a: &Scalar<Unencoded>) -> Scalar<R> {
     // Calculate the modular inverse of scalar |a| using Fermat's Little
     // Theorem:
     //

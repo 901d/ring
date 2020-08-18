@@ -17,6 +17,7 @@
 use self::ops::*;
 use crate::{arithmetic::montgomery::*, cpu, ec, error, io::der, limb::LimbMask, pkcs8};
 use untrusted;
+use std::marker::PhantomData;
 
 // NIST SP 800-56A Step 3: "If q is an odd prime p, verify that
 // yQ**2 = xQ**3 + axQ + b in GF(p), where the arithmetic is performed modulo
@@ -236,3 +237,54 @@ mod ops;
 
 mod private_key;
 mod public_key;
+
+macro_rules! p256_limbs {
+    [ $($limb:expr),+ ] => {
+        limbs![$($limb),+, 0, 0, 0, 0]
+    };
+}
+
+#[test]
+fn verify_affine_point_is_on_the_curve_scaled_test() {
+    let g: (Elem<R>, Elem<R>) = (
+        Elem {
+            limbs: p256_limbs![
+            0xf418029e, 0x61328990, 0xdca6c050, 0x3e7981ed, 0xac24c3c3, 0xd6a1ed99,
+            0xe1c13b05, 0x91167a5e
+        ],
+            m: PhantomData,
+            encoding: PhantomData,
+        },
+        Elem {
+            limbs: p256_limbs![
+            0x3c2d0ddd, 0xc1354e59, 0x8d3295fa, 0xc1f5e578, 0x6e2a48f8, 0x8d4cfb06,
+            0x81d735bd, 0x63cd65d4
+        ],
+            m: PhantomData,
+            encoding: PhantomData,
+        },
+    );
+
+    if verify_affine_point_is_on_the_curve_scaled(&sm2p256::COMMON_OPS, (&g.0, &g.1), &sm2p256::COMMON_OPS.a, &sm2p256::COMMON_OPS.b).is_ok() {
+        println!("g is on curve");
+    } else {
+        println!("g is not on curve");
+    }
+}
+
+#[test]
+fn verify_jacobian_point_is_on_the_curve_test() {
+    let scalar = Scalar {
+        limbs: p256_limbs![
+            0x01, 0, 0, 0, 0, 0, 0, 0
+        ],
+        m: PhantomData,
+        encoding: PhantomData,
+    };
+    let p = sm2p256::PRIVATE_KEY_OPS.point_mul_base(&scalar);
+    if verify_jacobian_point_is_on_the_curve(&sm2p256::COMMON_OPS, &p).is_ok() {
+        println!("point is on curve");
+    } else {
+        println!("pint is not on curve");
+    }
+}

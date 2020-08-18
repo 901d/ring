@@ -28,8 +28,11 @@ pub(super) extern "C" fn Norop_sm2p256_add(
     let b_bz: &[u8] = unsafe { slice::from_raw_parts(b_ptr, 32) };
     let a_big = BigUint::from_bytes_le(a_bz);
     let b_big = BigUint::from_bytes_le(b_bz);
-    let sum = add_sm2p256(&a_big, &b_big);
-    unsafe { r.copy_from(sum.to_bytes_le().as_mut_ptr() as *mut Limb, 4); }
+    let r_big = add_sm2p256(&a_big, &b_big);
+    let mut r_bz = [0; 32];
+    let r_raw_bz = r_big.to_bytes_le();
+    r_bz[..r_raw_bz.len()].copy_from_slice(&r_raw_bz);
+    unsafe { r.copy_from(r_bz.as_mut_ptr() as *mut Limb, 4); }
 }
 
 pub(super) extern "C" fn Norop_sm2p256_mul_mont(
@@ -44,7 +47,10 @@ pub(super) extern "C" fn Norop_sm2p256_mul_mont(
     let a_big = BigUint::from_bytes_le(a_bz);
     let b_big = BigUint::from_bytes_le(b_bz);
     let r_big = mont_pro_sm2p256(&a_big, &b_big);
-    unsafe { r.copy_from(r_big.to_bytes_le().as_mut_ptr() as *mut Limb, 4); }
+    let mut r_bz = [0; 32];
+    let r_raw_bz = r_big.to_bytes_le();
+    r_bz[..r_raw_bz.len()].copy_from_slice(&r_raw_bz);
+    unsafe { r.copy_from(r_bz.as_mut_ptr() as *mut Limb, 4); }
 }
 
 pub(super) extern "C" fn Norop_sm2p256_sqr_mont(
@@ -55,7 +61,10 @@ pub(super) extern "C" fn Norop_sm2p256_sqr_mont(
     let a_bz: &[u8] = unsafe { slice::from_raw_parts(a_ptr, 32) };
     let a_big = BigUint::from_bytes_le(a_bz);
     let r_big = mont_pro_sm2p256(&a_big, &a_big);
-    unsafe { r.copy_from(r_big.to_bytes_le().as_mut_ptr() as *mut Limb, 4); }
+    let mut r_bz = [0; 32];
+    let r_raw_bz = r_big.to_bytes_le();
+    r_bz[..r_raw_bz.len()].copy_from_slice(&r_raw_bz);
+    unsafe { r.copy_from(r_bz.as_mut_ptr() as *mut Limb, 4); }
 }
 
 // rem = a + b
@@ -64,10 +73,10 @@ pub(super) extern "C" fn Norop_sm2p256_point_add(
     a: *const Limb, // [3][COMMON_OPS.num_limbs]
     b: *const Limb, // [3][COMMON_OPS.num_limbs]
 ) {
-    let a_ptr = a as *const [u8; 64];
-    let b_ptr = b as *const [u8; 64];
-    let a_bz: &[[u8; 64]] = unsafe { slice::from_raw_parts(a_ptr, 3) };
-    let b_bz: &[[u8; 64]] = unsafe { slice::from_raw_parts(b_ptr, 3) };
+    let a_ptr = a as *const [u8; 32];
+    let b_ptr = b as *const [u8; 32];
+    let a_bz: &[[u8; 32]] = unsafe { slice::from_raw_parts(a_ptr, 3) };
+    let b_bz: &[[u8; 32]] = unsafe { slice::from_raw_parts(b_ptr, 3) };
     let a_x = BigUint::from_bytes_le(&a_bz[0]);
     let a_y = BigUint::from_bytes_le(&a_bz[1]);
     let a_z = BigUint::from_bytes_le(&a_bz[2]);
@@ -77,11 +86,14 @@ pub(super) extern "C" fn Norop_sm2p256_point_add(
 
     let rem = norop_point_add_sm2p256(&[a_x, a_y, a_z], &[b_x, b_y, b_z]);
 
-    let mut rem_arr = [0; 192];
-    rem_arr[..64].copy_from_slice(&rem[0].to_bytes_le());
-    rem_arr[64..128].copy_from_slice(&rem[1].to_bytes_le());
-    rem_arr[128..].copy_from_slice(&rem[2].to_bytes_le());
-    unsafe { r.copy_from(rem_arr.as_mut_ptr() as *mut Limb, 12); }
+    let mut rem_arr = [0; 144];
+    let rem_x_le = rem[0].to_bytes_le();
+    let rem_y_le = rem[1].to_bytes_le();
+    let rem_z_le = rem[2].to_bytes_le();
+    rem_arr[..rem_x_le.len()].copy_from_slice(&rem_x_le);
+    rem_arr[32..32+rem_y_le.len()].copy_from_slice(&rem_y_le);
+    rem_arr[64..64+rem_z_le.len()].copy_from_slice(&rem_z_le);
+    unsafe { r.copy_from(rem_arr.as_mut_ptr() as *mut Limb, 18); }
 }
 
 // double and add
@@ -101,13 +113,16 @@ pub(super) extern "C" fn Norop_sm2p256_point_mul(
     let p_x_big = BigUint::from_bytes_le(p_x_bz);
     let p_y_big = BigUint::from_bytes_le(p_y_bz);
 
-    let rem = norop_point_mul_sm2p256(&[p_x_big, p_y_big, BigUint::new(vec![1])], &p_scalar_big);
+    let rem = norop_point_mul_sm2p256(&norop_to_jacobi_sm2p256(&[p_x_big, p_y_big]), &p_scalar_big);
 
-    let mut rem_arr = [0; 192];
-    rem_arr[..64].copy_from_slice(&rem[0].to_bytes_le());
-    rem_arr[64..128].copy_from_slice(&rem[1].to_bytes_le());
-    rem_arr[128..].copy_from_slice(&rem[2].to_bytes_le());
-    unsafe { r.copy_from(rem_arr.as_mut_ptr() as *mut Limb, 12); }
+    let mut rem_arr = [0; 144];
+    let rem_x_le = rem[0].to_bytes_le();
+    let rem_y_le = rem[1].to_bytes_le();
+    let rem_z_le = rem[2].to_bytes_le();
+    rem_arr[..rem_x_le.len()].copy_from_slice(&rem_x_le);
+    rem_arr[32..32+rem_y_le.len()].copy_from_slice(&rem_y_le);
+    rem_arr[64..64+rem_z_le.len()].copy_from_slice(&rem_z_le);
+    unsafe { r.copy_from(rem_arr.as_mut_ptr() as *mut Limb, 18); }
 }
 
 // rem = a * b * r^-1 modn
@@ -123,7 +138,10 @@ pub(super) extern "C" fn Norop_sm2p256_scalar_mul_mont(
     let a_big = BigUint::from_bytes_le(a_bz);
     let b_big = BigUint::from_bytes_le(b_bz);
     let r_big = norop_scalar_mont_pro_sm2p256(&a_big, &b_big);
-    unsafe { r.copy_from(r_big.to_bytes_le().as_mut_ptr() as *mut Limb, 4); }
+    let mut r_bz = [0; 32];
+    let r_raw_bz = r_big.to_bytes_le();
+    r_bz[..r_raw_bz.len()].copy_from_slice(&r_raw_bz);
+    unsafe { r.copy_from(r_bz.as_mut_ptr() as *mut Limb, 4); }
 }
 
 pub(super) extern "C" fn Norop_sm2p256_scalar_sqr_mont(
@@ -134,7 +152,10 @@ pub(super) extern "C" fn Norop_sm2p256_scalar_sqr_mont(
     let a_bz: &[u8] = unsafe { slice::from_raw_parts(a_ptr, 32) };
     let a_big = BigUint::from_bytes_le(a_bz);
     let r_big = norop_scalar_mont_pro_sm2p256(&a_big, &a_big);
-    unsafe { r.copy_from(r_big.to_bytes_le().as_mut_ptr() as *mut Limb, 4); }
+    let mut r_bz = [0; 32];
+    let r_raw_bz = r_big.to_bytes_le();
+    r_bz[..r_raw_bz.len()].copy_from_slice(&r_raw_bz);
+    unsafe { r.copy_from(r_bz.as_mut_ptr() as *mut Limb, 4); }
 }
 
 pub(super) extern "C" fn Norop_sm2p256_scalar_sqr_rep_mont(
@@ -146,7 +167,10 @@ pub(super) extern "C" fn Norop_sm2p256_scalar_sqr_rep_mont(
     let a_bz: &[u8] = unsafe { slice::from_raw_parts(a_ptr, 32) };
     let a_big = BigUint::from_bytes_le(a_bz);
     let r_big = norop_scalar_mul_rep_sm2p256(&a_big, rep as usize);
-    unsafe { r.copy_from(r_big.to_bytes_le().as_mut_ptr() as *mut Limb, 4); }
+    let mut r_bz = [0; 32];
+    let r_raw_bz = r_big.to_bytes_le();
+    r_bz[..r_raw_bz.len()].copy_from_slice(&r_raw_bz);
+    unsafe { r.copy_from(r_bz.as_mut_ptr() as *mut Limb, 4); }
 }
 
 struct sm2p256_ctx {
