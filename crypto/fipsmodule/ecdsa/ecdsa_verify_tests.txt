@@ -5,6 +5,13 @@
 # the digests have been extracted. P-521 test vectors were fixed to have the
 # right number of leading zeros.
 
+Curve = SM2-P-256
+X = 79fff92a3df175895778dc9dcc825d95e8bb816c356d6c7390332294b3a20189
+Y = bb24feac1a4a08ff614a4c514b985755948c0a4e49c0042e84078d4a23df6f7e
+Digest = 01ed0c41d650479c47057f61433d7e8b24492649
+R = d1e7e2e98b64417ccc858af9f93db60a2fb06170a9a94780ab4aaf98366e4661
+S = 1284c51929e84a75bff922902ea668b95cfb3e4db8dff7c0994bbe61deaee3b2
+
 Curve = P-256
 X = 1198b3c409a8b47edb1347e0982d533cb1813e5cb2a92c824b2881b3cd2f3f4a
 Y = 0bdbac5fa02e41e775f8d602446d58ecb2209b5a3d79ae69eef399016e992e87

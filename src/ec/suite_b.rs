@@ -18,6 +18,7 @@ use self::ops::*;
 use crate::{arithmetic::montgomery::*, cpu, ec, error, io::der, limb::LimbMask, pkcs8};
 use untrusted;
 use std::marker::PhantomData;
+use num_bigint::BigUint;
 
 // NIST SP 800-56A Step 3: "If q is an odd prime p, verify that
 // yQ**2 = xQ**3 + axQ + b in GF(p), where the arithmetic is performed modulo
@@ -265,26 +266,91 @@ fn verify_affine_point_is_on_the_curve_scaled_test() {
         },
     );
 
-    if verify_affine_point_is_on_the_curve_scaled(&sm2p256::COMMON_OPS, (&g.0, &g.1), &sm2p256::COMMON_OPS.a, &sm2p256::COMMON_OPS.b).is_ok() {
-        println!("g is on curve");
-    } else {
-        println!("g is not on curve");
-    }
+    assert!(verify_affine_point_is_on_the_curve_scaled(&sm2p256::COMMON_OPS, (&g.0, &g.1), &sm2p256::COMMON_OPS.a, &sm2p256::COMMON_OPS.b).is_ok());
 }
 
 #[test]
-fn verify_jacobian_point_is_on_the_curve_test() {
+fn sm2p256_point_mul_test() {
     let scalar = Scalar {
         limbs: p256_limbs![
-            0x01, 0, 0, 0, 0, 0, 0, 0
+            0x39d54123, 0x53bbf409, 0x21c6052b, 0x7203df6b, 0xffffffff, 0xffffffff, 0xffffffff,
+            0xfffffeee
         ],
         m: PhantomData,
         encoding: PhantomData,
     };
     let p = sm2p256::PRIVATE_KEY_OPS.point_mul_base(&scalar);
-    if verify_jacobian_point_is_on_the_curve(&sm2p256::COMMON_OPS, &p).is_ok() {
-        println!("point is on curve");
-    } else {
-        println!("pint is not on curve");
-    }
+    assert!(verify_jacobian_point_is_on_the_curve(&sm2p256::COMMON_OPS, &p).is_ok());
+}
+
+#[test]
+fn sm2p256_point_add_test() {
+    let scalar1 = Scalar {
+        limbs: p256_limbs![
+            10, 0, 0, 0, 0, 0, 0, 0
+        ],
+        m: PhantomData,
+        encoding: PhantomData,
+    };
+    let p1 = sm2p256::PRIVATE_KEY_OPS.point_mul_base(&scalar1);
+    let scalar2 = Scalar {
+        limbs: p256_limbs![
+            15, 0, 0, 0, 0, 0, 0, 0
+        ],
+        m: PhantomData,
+        encoding: PhantomData,
+    };
+    let p2 = sm2p256::PRIVATE_KEY_OPS.point_mul_base(&scalar2);
+    let p = sm2p256::COMMON_OPS.point_sum(&p1, &p2);
+    assert!(verify_jacobian_point_is_on_the_curve(&sm2p256::COMMON_OPS, &p).is_ok());
+}
+
+#[test]
+fn sm2p256_elem_inv_squared_test() {
+    let elem = Elem {
+        limbs: p256_limbs![
+            0xa88a09af, 0x7eedf6ee, 0xff6feeeb, 0x381cfa4a, 0x117f899f, 0x289e5602,
+            0xe73f380b, 0xa69b63a2
+        ],
+        m: PhantomData,
+        encoding: PhantomData,
+    };
+    let expect_elem = Elem {
+        limbs: p256_limbs![
+            0x80f59e24, 0xf30353a5, 0x1a42cc6c, 0xaf397c87, 0x1dfd4054, 0xf6a573b6,
+            0x2c3b4a49, 0x22bee6f8
+        ],
+        m: PhantomData,
+        encoding: PhantomData,
+    };
+    let inv_sqr_elem = sm2p256::PRIVATE_KEY_OPS.elem_inverse_squared(&elem);
+    assert_eq!(sm2p256::PRIVATE_KEY_OPS.common.elems_are_equal(&inv_sqr_elem, &expect_elem), LimbMask::True)
+
+}
+
+#[test]
+fn sm2p256_scalar_inv_to_mont_test() {
+    let elem = Scalar {
+        limbs: p256_limbs![
+            0xadc0a99a, 0x16553623, 0x46cdfd75, 0xd3f55c3f, 0xab664658, 0x7bdb6926,
+            0xc09ec830, 0x52ab139a
+        ],
+        m: PhantomData,
+        encoding: PhantomData,
+    };
+    let expect_elem = Elem {
+        limbs: p256_limbs![
+            0x07351abb, 0xd73bee1a, 0x64611057, 0x8a7ab60c, 0x80bffdae, 0x41941fa8,
+            0x1523b2b9, 0x8b27cc69
+        ],
+        m: PhantomData,
+        encoding: PhantomData,
+    };
+    let inv_sqr_scalar = sm2p256::SCALAR_OPS.scalar_inv_to_mont(&elem);
+    let inv_sqr_elem = Elem {
+        limbs: inv_sqr_scalar.limbs,
+        m: PhantomData,
+        encoding: PhantomData,
+    };
+    assert_eq!(sm2p256::SCALAR_OPS.common.elems_are_equal(&inv_sqr_elem, &expect_elem), LimbMask::True);
 }

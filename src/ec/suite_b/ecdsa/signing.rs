@@ -629,6 +629,7 @@ mod tests {
                 let alg = match (curve_name.as_str(), digest_name.as_str()) {
                     ("P-256", "SHA256") => &signature::ECDSA_P256_SHA256_ASN1_SIGNING,
                     ("P-384", "SHA384") => &signature::ECDSA_P384_SHA384_ASN1_SIGNING,
+                    ("SM2-P-256", "SM3") => &signature::ECDSA_SM2P256_SM3_ASN1_SIGNING,
                     _ => {
                         panic!("Unsupported curve+digest: {}+{}", curve_name, digest_name);
                     }
