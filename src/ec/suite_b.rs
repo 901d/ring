@@ -13,7 +13,6 @@
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 //! Elliptic curve operations on P-256 & P-384.
-
 use self::ops::*;
 use crate::{arithmetic::montgomery::*, cpu, ec, error, io::der, limb::LimbMask, pkcs8};
 use untrusted;
@@ -226,6 +225,69 @@ pub(crate) fn key_pair_from_bytes(
     }
 
     Ok(r)
+}
+
+#[cfg(feature = "internal_benches")]
+mod agreement {
+    macro_rules! ring_agreement_benches {
+        ( $name:ident, $alg:expr) => {
+            mod $name {
+                extern crate test;
+                use crate::{agreement, rand};
+
+                // Generate a new private key and compute the public key.
+                // Although these are separate steps in *ring*, in other APIs
+                // they are a single step.
+                #[bench]
+                fn generate_key_pair(b: &mut test::Bencher) {
+                    let rng = rand::SystemRandom::new();
+                    b.iter(|| {
+                        let private_key =
+                            agreement::EphemeralPrivateKey::generate($alg, &rng).unwrap();
+                        let _ = test::black_box(private_key.compute_public_key().unwrap());
+                    });
+                }
+
+                #[bench]
+                fn generate_private_key(b: &mut test::Bencher) {
+                    let rng = rand::SystemRandom::new();
+                    b.iter(|| {
+                        let _ = agreement::EphemeralPrivateKey::generate($alg, &rng).unwrap();
+                    });
+                }
+
+                // XXX: Because ring::agreement::agree_ephemeral moves its
+                // private key argument, we cannot measure
+                // `agreement::agree_ephemeral` on its own using the Rust
+                // `Bencher` interface. To get an idea of its performance,
+                // subtract the timing of `generate_private_key` from the
+                // timing of this function.
+                // #[bench]
+                // fn generate_key_pair_and_agree_ephemeral(b: &mut test::Bencher) {
+                //     let rng = rand::SystemRandom::new();
+                //
+                //     // These operations are done by the peer.
+                //     let b_private = agreement::EphemeralPrivateKey::generate($alg, &rng).unwrap();
+                //     let b_public = b_private.compute_public_key().unwrap();
+                //     let b_public = agreement::UnparsedPublicKey::new($alg, b_public.as_ref());
+                //
+                //     b.iter(|| {
+                //         // These operations are all done in the
+                //         // `generate_key_pair` step.
+                //         let a_private =
+                //             agreement::EphemeralPrivateKey::generate($alg, &rng).unwrap();
+                //         let _a_public = a_private.compute_public_key().unwrap();
+                //         agreement::agree_ephemeral(a_private, &b_public, (), |_| Ok(())).unwrap();
+                //     });
+                // }
+            }
+        };
+    }
+
+    ring_agreement_benches!(p256, &agreement::ECDH_P256);
+    ring_agreement_benches!(p384, &agreement::ECDH_P384);
+    ring_agreement_benches!(sm2p256, &agreement::ECDH_SM2P256);
+    ring_agreement_benches!(x25519, &agreement::X25519);
 }
 
 pub mod curve;

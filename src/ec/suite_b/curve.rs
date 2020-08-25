@@ -101,7 +101,8 @@ fn sm2p256_check_private_key_bytes(bytes: &[u8]) -> Result<(), error::Unspecifie
 fn sm2p256_generate_private_key(_rng: &dyn rand::SecureRandom, out: &mut [u8]) -> Result<(), error::Unspecified> {
     let ctx = sm2::signature::SigCtx::new();
     let (_pk, sk) = ctx.new_keypair();
-    out.copy_from_slice(&sk.to_bytes_be());
+    let sk_bz = sk.to_bytes_be();
+    out[..sk_bz.len()].copy_from_slice(&sk_bz);
     Ok(())
 }
 
