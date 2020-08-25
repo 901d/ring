@@ -1261,3 +1261,6 @@ pub mod p256;
 pub mod p384;
 pub mod sm2p256;
 pub mod norop;
+pub mod norop256;
+mod norop256_test;
+mod sm2p256_norop;

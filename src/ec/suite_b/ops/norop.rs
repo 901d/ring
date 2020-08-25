@@ -17,6 +17,10 @@ use num_traits::identities::Zero;
 use crate::limb::Limb;
 use std::slice;
 
+lazy_static! {
+    static ref SM2P256_CTX: sm2p256_ctx = sm2p256_ctx::new();
+}
+
 pub(super) extern "C" fn Norop_sm2p256_add(
     r: *mut Limb,   // [COMMON_OPS.num_limbs]
     a: *const Limb, // [COMMON_OPS.num_limbs]
@@ -202,14 +206,13 @@ fn mont_pro_sm2p256(
     b: &BigUint,
 ) -> BigUint {
     assert!(a.bits() <= 256 && b.bits() <= 256);
-    let ctx = sm2p256_ctx::new();
     let t = a * b;
-    let m = (t.clone() * &ctx.p_inv_r_neg) & &ctx.ffff_256;
-    let m_mul_p = m * &ctx.p;
+    let m = (&t * &SM2P256_CTX.p_inv_r_neg) & &SM2P256_CTX.ffff_256;
+    let m_mul_p = m * &SM2P256_CTX.p;
     let mut r = t + &m_mul_p;
     r >>= 256;
-    if r >= ctx.p.clone() {
-        r -= &ctx.p;
+    if r >= SM2P256_CTX.p {
+        r -= &SM2P256_CTX.p;
     }
     r
 }
@@ -219,10 +222,9 @@ fn add_sm2p256(
     b: &BigUint
 ) -> BigUint {
     assert!(a.bits() <= 256 && b.bits() <= 256);
-    let ctx = sm2p256_ctx::new();
-    let mut r = a +b;
-    while r >= ctx.p.clone() {
-        r -= &ctx.p;
+    let mut r = a + b;
+    while r >= SM2P256_CTX.p {
+        r -= &SM2P256_CTX.p;
     }
     r
 }
@@ -231,9 +233,8 @@ fn neg_sm2p256(
     a: &BigUint
 ) -> BigUint {
     assert!(a.bits() <= 256);
-    let ctx = sm2p256_ctx::new();
-    let a = a % &ctx.p;
-    &ctx.p - &a
+    let a = a % &SM2P256_CTX.p;
+    &SM2P256_CTX.p - &a
 }
 
 fn sub_sm2p256(
@@ -241,11 +242,10 @@ fn sub_sm2p256(
     b: &BigUint
 ) -> BigUint {
     assert!(a.bits() <= 256 && b.bits() <= 256);
-    let ctx = sm2p256_ctx::new();
     let neg_b = neg_sm2p256(b);
     let mut r = a + &neg_b;
-    while r >= ctx.p.clone() {
-        r -= &ctx.p;
+    while r >= SM2P256_CTX.p {
+        r -= &SM2P256_CTX.p;
     }
     r
 }
@@ -271,24 +271,22 @@ fn shl_sm2p256(
 fn mod_sm2p256(
     a: &BigUint,
 ) -> BigUint {
-    let ctx = sm2p256_ctx::new();
     let mut rem = a.clone();
     let mut rem_len = rem.bits();
     while rem_len > 256 {
         let left_rem = &rem >> 256;
-        rem -= (&left_rem + (&left_rem >> 32) + (&left_rem >> 160) - (&left_rem >> 192)) * &ctx.p;
+        rem -= (&left_rem + (&left_rem >> 32) + (&left_rem >> 160) - (&left_rem >> 192)) * &SM2P256_CTX.p;
         rem_len = rem.bits();
     }
-    if rem >= ctx.p.clone() {
-        rem -= &ctx.p;
+    if rem >= SM2P256_CTX.p {
+        rem -= &SM2P256_CTX.p;
     }
     rem
 }
 
 fn norop_to_mont_sm2p256(a: &BigUint) -> BigUint {
     assert!(a.bits() <= 256);
-    let ctx = sm2p256_ctx::new();
-    mont_pro_sm2p256(a, &ctx.rr_p)
+    mont_pro_sm2p256(a, &SM2P256_CTX.rr_p)
 }
 
 // todo change algorithm
@@ -374,17 +372,16 @@ fn norop_point_mul_sm2p256(a: &[BigUint; 3], scalar: &BigUint) -> [BigUint; 3] {
 }
 
 // (`a` squared `squarings` times) * b
+#[inline]
 fn norop_sqr_mul_sm2p256(
     a: &BigUint,
-    squrings: usize,
+    squarings: usize,
     b: &BigUint,
 ) -> BigUint {
-    assert!(squrings >= 1 && a.bits() <= 256);
+    assert!(squarings >= 1 && a.bits() <= 256);
     let mut rem = mont_pro_sm2p256(a, a);
-    let mut i = 1;
-    while i < squrings {
+    for _ in 1..squarings {
         rem = mont_pro_sm2p256(&rem, &rem);
-        i += 1;
     }
     mont_pro_sm2p256(&rem, b)
 }
@@ -460,14 +457,13 @@ fn norop_scalar_mont_pro_sm2p256(
     b: &BigUint,
 ) -> BigUint {
     assert!(a.bits() <= 256 && b.bits() <= 256);
-    let ctx = sm2p256_ctx::new();
     let t = a * b;
-    let m = (t.clone() * &ctx.n_inv_r_neg) & &ctx.ffff_256;
-    let m_mul_pinv = m * &ctx.n;
+    let m = (t.clone() * &SM2P256_CTX.n_inv_r_neg) & &SM2P256_CTX.ffff_256;
+    let m_mul_pinv = m * &SM2P256_CTX.n;
     let mut r = t + &m_mul_pinv;
     r >>= 256;
-    if r >= ctx.n.clone() {
-        r -= &ctx.n;
+    if r >= SM2P256_CTX.n {
+        r -= &SM2P256_CTX.n;
     }
     r
 }
@@ -475,22 +471,19 @@ fn norop_scalar_mont_pro_sm2p256(
 // `a` squared `squarings` times
 fn norop_scalar_mul_rep_sm2p256(
     a: &BigUint,
-    squrings: usize,
+    squarings: usize,
 ) -> BigUint {
-    assert!(squrings >= 1 && a.bits() <= 256);
+    assert!(squarings >= 1 && a.bits() <= 256);
     let mut rem = norop_scalar_mont_pro_sm2p256(a, a);
-    let mut i = 1;
-    while i < squrings {
+    for _ in 1..squarings {
         rem = norop_scalar_mont_pro_sm2p256(&rem, &rem);
-        i += 1;
     }
     rem
 }
 
 fn norop_scalar_to_mont_sm2p256(a: &BigUint) -> BigUint {
     assert!(a.bits() <= 256);
-    let ctx = sm2p256_ctx::new();
-    norop_scalar_mont_pro_sm2p256(a, &ctx.rr_n)
+    norop_scalar_mont_pro_sm2p256(a, &SM2P256_CTX.rr_n)
 }
 
 #[test]
@@ -584,4 +577,43 @@ fn sm2p256_scalar_mul_test() {
 fn sm2p256_calar_mul_rep_test() {
     let a = BigUint::from_bytes_be(&hex::decode("fffffc4d0000064efffffb8c00000324fffffdc600000543fffff8950000053b").unwrap());
     println!("{}", norop_scalar_mul_rep_sm2p256(&norop_scalar_to_mont_sm2p256(&a), 5).to_str_radix(16));
+}
+
+#[cfg(feature = "internal_benches")]
+mod internal_benches {
+    use super::*;
+    use num_bigint::BigUint;
+    extern crate test;
+
+    #[bench]
+    fn elem_inverse_bench(bench: &mut test::Bencher) {
+        // This benchmark assumes that `elem_inverse_squared()` is
+        // constant-time so inverting 1 mod q is as good of a choice as
+        // anything.
+        let a = BigUint::from_bytes_be(&hex::decode("01").unwrap());
+        bench.iter(|| {
+            let _ = norop_mont_inv_sm2p256(&a);
+        });
+    }
+
+    #[bench]
+    fn elem_product_bench(bench: &mut test::Bencher) {
+        // This benchmark assumes that the multiplication is constant-time
+        // so 0 * 0 is as good of a choice as anything.
+        let a = BigUint::from_bytes_be(&hex::decode("00").unwrap());
+        let b = BigUint::from_bytes_be(&hex::decode("00").unwrap());
+        bench.iter(|| {
+            let _ = mont_pro_sm2p256(&a, &b);
+        });
+    }
+
+    #[bench]
+    fn elem_squared_bench(bench: &mut test::Bencher) {
+        // This benchmark assumes that the squaring is constant-time so
+        // 0**2 * 0 is as good of a choice as anything.
+        let a = BigUint::from_bytes_be(&hex::decode("00").unwrap());
+        bench.iter(|| {
+            let _ = mont_pro_sm2p256(&a, &a);
+        });
+    }
 }
