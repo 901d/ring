@@ -64,18 +64,18 @@ pub static COMMON_OPS: CommonOps = CommonOps {
         encoding: PhantomData, // R
     },
 
-    elem_add_impl: norop::Norop_sm2p256_add,
-    elem_mul_mont: norop::Norop_sm2p256_mul_mont,
-    elem_sqr_mont: norop::Norop_sm2p256_sqr_mont,
+    elem_add_impl: sm2p256_norop::Norop_sm2p256_add,
+    elem_mul_mont: sm2p256_norop::Norop_sm2p256_mul_mont,
+    elem_sqr_mont: sm2p256_norop::Norop_sm2p256_sqr_mont,
 
-    point_add_jacobian_impl: norop::Norop_sm2p256_point_add,
+    point_add_jacobian_impl: sm2p256_norop::Norop_sm2p256_point_add,
 };
 
 pub static PRIVATE_KEY_OPS: PrivateKeyOps = PrivateKeyOps {
     common: &COMMON_OPS,
     elem_inv_squared: sm2p256_elem_inv_squared,
     point_mul_base_impl: sm2p256_point_mul_base_impl,
-    point_mul_impl: norop::Norop_sm2p256_point_mul,
+    point_mul_impl: sm2p256_norop::Norop_sm2p256_point_mul,
 };
 
 fn sm2p256_elem_inv_squared(a: &Elem<R>) -> Elem<R> {
@@ -157,7 +157,7 @@ fn sm2p256_point_mul_base_impl(g_scalar: &Scalar) -> Point {
         },
     );
 
-    norop::Norop_sm2p256_point_mul(
+    sm2p256_norop::Norop_sm2p256_point_mul(
         r.xyz.as_mut_ptr(),
         g_scalar.limbs.as_ptr(),
         GENERATOR.0.limbs.as_ptr(),
@@ -174,7 +174,7 @@ pub static PUBLIC_KEY_OPS: PublicKeyOps = PublicKeyOps {
 pub static SCALAR_OPS: ScalarOps = ScalarOps {
     common: &COMMON_OPS,
     scalar_inv_to_mont_impl: sm2p256_scalar_inv_to_mont,
-    scalar_mul_mont: norop::Norop_sm2p256_scalar_mul_mont,
+    scalar_mul_mont: sm2p256_norop::Norop_sm2p256_scalar_mul_mont,
 };
 
 pub static PUBLIC_SCALAR_OPS: PublicScalarOps = PublicScalarOps {
@@ -214,27 +214,27 @@ fn sm2p256_scalar_inv_to_mont(a: &Scalar<Unencoded>) -> Scalar<R> {
 
     #[inline]
     fn mul(a: &Scalar<R>, b: &Scalar<R>) -> Scalar<R> {
-        binary_op(norop::Norop_sm2p256_scalar_mul_mont, a, b)
+        binary_op(sm2p256_norop::Norop_sm2p256_scalar_mul_mont, a, b)
     }
 
     #[inline]
     fn sqr(a: &Scalar<R>) -> Scalar<R> {
-        unary_op(norop::Norop_sm2p256_scalar_sqr_mont, a)
+        unary_op(sm2p256_norop::Norop_sm2p256_scalar_sqr_mont, a)
     }
 
     // Returns (`a` squared `squarings` times) * `b`.
     fn sqr_mul(a: &Scalar<R>, squarings: Limb, b: &Scalar<R>) -> Scalar<R> {
         debug_assert!(squarings >= 1);
         let mut tmp = Scalar::zero();
-        norop::Norop_sm2p256_scalar_sqr_rep_mont(tmp.limbs.as_mut_ptr(), a.limbs.as_ptr(), squarings);
+        sm2p256_norop::Norop_sm2p256_scalar_sqr_rep_mont(tmp.limbs.as_mut_ptr(), a.limbs.as_ptr(), squarings);
         mul(&tmp, b)
     }
 
     // Sets `acc` = (`acc` squared `squarings` times) * `b`.
     fn sqr_mul_acc(acc: &mut Scalar<R>, squarings: Limb, b: &Scalar<R>) {
         debug_assert!(squarings >= 1);
-        norop::Norop_sm2p256_scalar_sqr_rep_mont(acc.limbs.as_mut_ptr(), acc.limbs.as_ptr(), squarings);
-        binary_op_assign(norop::Norop_sm2p256_scalar_mul_mont, acc, b);
+        sm2p256_norop::Norop_sm2p256_scalar_sqr_rep_mont(acc.limbs.as_mut_ptr(), acc.limbs.as_ptr(), squarings);
+        binary_op_assign(sm2p256_norop::Norop_sm2p256_scalar_mul_mont, acc, b);
     }
 
     fn to_mont(a: &Scalar) -> Scalar<R> {
@@ -246,7 +246,7 @@ fn sm2p256_scalar_inv_to_mont(a: &Scalar<Unencoded>) -> Scalar<R> {
             m: PhantomData,
             encoding: PhantomData,
         };
-        binary_op(norop::Norop_sm2p256_scalar_mul_mont, a, &N_RR)
+        binary_op(sm2p256_norop::Norop_sm2p256_scalar_mul_mont, a, &N_RR)
     }
 
     // Indexes into `d`.

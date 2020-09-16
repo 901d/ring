@@ -12,9 +12,12 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+use crate::{rand, signature};
+
 mod test {
-    use crate::ec::suite_b::ops::norop256;
+    use crate::ec::suite_b::ops::{norop256, p256, Elem};
     use crate::ec::suite_b::ops::sm2p256_norop::mont_pro_sm2p256_next;
+    use crate::arithmetic::montgomery::R;
 
     #[test]
     fn norop256_mul_test() {
@@ -49,6 +52,15 @@ mod test {
         let (_prefix, shorts, _suffix) = unsafe { r.align_to::<u8>() };
         println!("mont_pro_sm2p256_next_test: {}", hex::encode(shorts));
     }
+
+    #[test]
+    fn elem_product_bench() {
+        // This benchmark assumes that the multiplication is constant-time
+        // so 0 * 0 is as good of a choice as anything.
+        let a: Elem<R> = Elem::zero();
+        let b: Elem<R> = Elem::zero();
+        let _ = p256::COMMON_OPS.elem_product(&a, &b);
+    }
 }
 
 #[cfg(feature = "internal_benches")]
@@ -56,6 +68,7 @@ mod internal_benches {
     use num_bigint::BigUint;
     use crate::ec::suite_b::ops::norop256::{norop256_mul, norop256_mul_u128, norop256_mul_u128_next};
     use crate::ec::suite_b::ops::sm2p256_norop::mont_pro_sm2p256_next;
+    use crate::{signature, rand};
 
     extern crate test;
 
@@ -100,4 +113,59 @@ mod internal_benches {
             let _ = mont_pro_sm2p256_next(&a, &b);
         });
     }
+
+    #[bench]
+    fn sm2p256_signing_bench(bench: &mut test::Bencher) {
+        let rng = rand::SystemRandom::new();
+        let msg = hex::decode("5905238877c774").unwrap();
+
+        let prik = hex::decode("b8aa2a5bd9a9cf448984a247e63cb3878859d02b886e1bc63cd5c6dd46a744ab").unwrap();
+        let pubk = hex::decode("0479fff92a3df175895778dc9dcc825d95e8bb816c356d6c7390332294b3a20189bb24feac1a4a08ff614a4c514b985755948c0a4e49c0042e84078d4a23df6f7e").unwrap();
+
+        let signing_alg = &signature::ECDSA_SM2P256_SM3_ASN1_SIGNING;
+
+        let private_key =
+            signature::EcdsaKeyPair::from_private_key_and_public_key(signing_alg, &prik, &pubk)
+                .unwrap();
+
+        bench.iter(|| {
+            let _ = private_key.sign(&rng, &msg).unwrap();
+        });
+    }
+
+    #[bench]
+    fn p256_signing_bench(bench: &mut test::Bencher) {
+        let rng = rand::SystemRandom::new();
+        let msg = hex::decode("5905238877c774").unwrap();
+
+        let prik = hex::decode("519b423d715f8b581f4fa8ee59f4771a5b44c8130b4e3eacca54a56dda72b464").unwrap();
+        let pubk = hex::decode("041ccbe91c075fc7f4f033bfa248db8fccd3565de94bbfb12f3c59ff46c271bf83ce4014c68811f9a21a1fdb2c0e6113e06db7ca93b7404e78dc7ccd5ca89a4ca9").unwrap();
+
+        let signing_alg = &signature::ECDSA_P256_SHA256_ASN1_SIGNING;
+
+        let private_key =
+            signature::EcdsaKeyPair::from_private_key_and_public_key(signing_alg, &prik, &pubk)
+                .unwrap();
+
+        bench.iter(|| {
+            let _ = private_key.sign(&rng, &msg).unwrap();
+        });
+    }
+}
+
+#[test]
+fn sm2p256_signing_test() {
+    let rng = rand::SystemRandom::new();
+    let msg = hex::decode("5905238877c774").unwrap();
+
+    let prik = hex::decode("b8aa2a5bd9a9cf448984a247e63cb3878859d02b886e1bc63cd5c6dd46a744ab").unwrap();
+    let pubk = hex::decode("0479fff92a3df175895778dc9dcc825d95e8bb816c356d6c7390332294b3a20189bb24feac1a4a08ff614a4c514b985755948c0a4e49c0042e84078d4a23df6f7e").unwrap();
+
+    let signing_alg = &signature::ECDSA_SM2P256_SM3_ASN1_SIGNING;
+
+    let private_key =
+        signature::EcdsaKeyPair::from_private_key_and_public_key(signing_alg, &prik, &pubk)
+            .unwrap();
+
+    let _ = private_key.sign(&rng, &msg).unwrap();
 }

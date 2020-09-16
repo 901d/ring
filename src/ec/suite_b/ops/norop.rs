@@ -179,8 +179,11 @@ pub(super) extern "C" fn Norop_sm2p256_scalar_sqr_rep_mont(
 
 struct sm2p256_ctx {
     ffff_256: BigUint,
+    ffff_32: BigUint,
     p: BigUint,
     p_inv_r_neg: BigUint,
+    p0_inv_r_neg: BigUint,
+    r_p: BigUint,
     rr_p: BigUint,
     n: BigUint,
     n_inv_r_neg: BigUint,
@@ -191,8 +194,11 @@ impl sm2p256_ctx {
     pub fn new() -> sm2p256_ctx {
         sm2p256_ctx {
             ffff_256: BigUint::from_bytes_be(&hex::decode("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff").unwrap()),
+            ffff_32: BigUint::from_bytes_be(&hex::decode("ffffffff").unwrap()),
             p: BigUint::from_bytes_be(&hex::decode("fffffffeffffffffffffffffffffffffffffffff00000000ffffffffffffffff").unwrap()),
             p_inv_r_neg: BigUint::from_bytes_be(&hex::decode("fffffffc00000001fffffffe00000000ffffffff000000010000000000000001").unwrap()),
+            p0_inv_r_neg: BigUint::from_bytes_be(&hex::decode("0000000000000001").unwrap()),
+            r_p : BigUint::from_bytes_be(&hex::decode("0100000000000000000000000000000000ffffffff0000000000000001").unwrap()),
             rr_p: BigUint::from_bytes_be(&hex::decode("0400000002000000010000000100000002ffffffff0000000200000003").unwrap()),
             n: BigUint::from_bytes_be(&hex::decode("fffffffeffffffffffffffffffffffff7203df6b21c6052b53bbf40939d54123").unwrap()),
             n_inv_r_neg: BigUint::from_bytes_be(&hex::decode("6f39132f82e4c7bc2b0068d3b08941d4df1e8d34fc8319a5327f9e8872350975").unwrap()),
@@ -211,6 +217,30 @@ fn mont_pro_sm2p256(
     let m_mul_p = m * &SM2P256_CTX.p;
     let mut r = t + &m_mul_p;
     r >>= 256;
+    if r >= SM2P256_CTX.p {
+        r -= &SM2P256_CTX.p;
+    }
+    r
+}
+
+fn mont_pro_sm2p256_next(
+    a: &BigUint,
+    b: &BigUint,
+) -> BigUint {
+    assert!(a.bits() <= 256 && b.bits() <= 256);
+    let a_vec = a.to_u32_digits();
+    let b_vec = b.to_u32_digits();
+    let b0 = u64::from(b_vec[0]);
+    let mut c0 = BigUint::new(vec![0]);
+    let mut r = BigUint::new(vec![0]);
+    for i in 0..8 {
+        let a_uint = u64::from(*a_vec.get(i).unwrap_or(&0));
+
+        c0 = (&c0 + a_uint * b0) & &SM2P256_CTX.ffff_32;
+        r += a_uint * b + &c0 * &SM2P256_CTX.p;
+        r >>= 32;
+        c0 = &r & &SM2P256_CTX.ffff_32;
+    }
     if r >= SM2P256_CTX.p {
         r -= &SM2P256_CTX.p;
     }
@@ -486,97 +516,133 @@ fn norop_scalar_to_mont_sm2p256(a: &BigUint) -> BigUint {
     norop_scalar_mont_pro_sm2p256(a, &SM2P256_CTX.rr_n)
 }
 
-#[test]
-fn sm2p256_elem_mul_test() {
-    let a = BigUint::from_bytes_be(&hex::decode("fffffc4d0000064efffffb8c00000324fffffdc600000543fffff8950000053b").unwrap());
-    let a = norop_to_mont_sm2p256(&a);
-    println!("{}", mont_pro_sm2p256(&mont_pro_sm2p256(&a, &a), &BigUint::new(vec![1])).to_str_radix(16));
+mod test {
+    use num_bigint::BigUint;
+    use crate::ec::suite_b::ops::norop::*;
 
-    // 0100000000000000000000000000000000ffffffff0000000000000001 1 * r modsm2p256
-    let b = BigUint::from_bytes_be(&hex::decode("0100000000000000000000000000000000ffffffff0000000000000001").unwrap());
-    println!("a * 1: {}, a: {}", mont_pro_sm2p256(&a, &b).to_str_radix(16), a.to_str_radix(16));
-}
+    #[test]
+    fn sm2p256_elem_mul_test() {
+        let a = BigUint::from_bytes_be(&hex::decode("fffffc4d0000064efffffb8c00000324fffffdc600000543fffff8950000053b").unwrap());
+        println!("sm2p256_elem_mul_test 1: {}", &mont_pro_sm2p256(&a, &a).to_str_radix(16));
 
-#[test]
-fn sm2p256_to_mont_test() {
-    let a = BigUint::from_bytes_be(&hex::decode("fffffc4d0000064efffffb8c00000324fffffdc600000543fffff8950000053b").unwrap());
-    println!("{}", norop_to_mont_sm2p256(&a).to_str_radix(16));
-}
+        // 0100000000000000000000000000000000ffffffff0000000000000001 1 * r modsm2p256
+        let b = BigUint::from_bytes_be(&hex::decode("0100000000000000000000000000000000ffffffff0000000000000001").unwrap());
+        println!("sm2p256_elem_mul_test 2: a * 1: {}, a: {}", mont_pro_sm2p256(&a, &b).to_str_radix(16), a.to_str_radix(16));
+    }
 
-#[test]
-fn sm2p256_neg_test() {
-    let a = BigUint::from_bytes_be(&hex::decode("fffffffeffffffffffffffffffffffffffffffff00000001ffffffffffffffff").unwrap());
-    println!("{}", neg_sm2p256(&a).to_str_radix(16));
-}
+    #[test]
+    fn sm2p256_elem_mul_next_test() {
+        let a = BigUint::from_bytes_be(&hex::decode("fffffc4d0000064efffffb8c00000324fffffdc600000543fffff8950000053b").unwrap());
+        println!("sm2p256_elem_mul_next_test 1: {}", &mont_pro_sm2p256_next(&a, &a).to_str_radix(16));
 
-#[test]
-fn sm2p256_sub_test() {
-    let a = BigUint::from_bytes_be(&hex::decode("fffffc4d0000064efffffb8c00000324fffffdc600000543fffff8950000053b").unwrap());
-    let b = BigUint::from_bytes_be(&hex::decode("fffffc4d0000064efffffb8c00000324fffffdc600000543fffff8950000053b").unwrap());
-    println!("{}", sub_sm2p256(&a, &b).to_str_radix(16));
+        // 0100000000000000000000000000000000ffffffff0000000000000001 1 * r modsm2p256
+        let b = BigUint::from_bytes_be(&hex::decode("0100000000000000000000000000000000ffffffff0000000000000001").unwrap());
+        println!("sm2p256_elem_mul_next_test 2: a * 1: {}, a: {}", mont_pro_sm2p256_next(&a, &b).to_str_radix(16), a.to_str_radix(16));
+    }
 
-    let a = BigUint::from_bytes_be(&hex::decode("0100000000000000000000000000000001000000000000000000000001").unwrap());
-    let b = BigUint::from_bytes_be(&hex::decode("fffffffeffffffffffffffffffffffffffffffff00000001ffffffffffffffff").unwrap());
-    println!("{}", sub_sm2p256(&a, &b).to_str_radix(16));
-}
+    #[test]
+    fn sm2p256_to_mont_test() {
+        let a = BigUint::from_bytes_be(&hex::decode("fffffc4d0000064efffffb8c00000324fffffdc600000543fffff8950000053b").unwrap());
+        println!("sm2p256_to_mont_test: {}", norop_to_mont_sm2p256(&a).to_str_radix(16));
+    }
 
-#[test]
-fn sm2p256_inv_test() {
-    let a = BigUint::from_bytes_be(&hex::decode("fffffc4d0000064efffffb8c00000324fffffdc600000543fffff8950000053b").unwrap());
-    let res_mon = norop_mont_inv_sm2p256(&norop_to_mont_sm2p256(&a));
-    println!("{}", mont_pro_sm2p256(&res_mon, &BigUint::new(vec![1])).to_str_radix(16));
-}
+    #[test]
+    fn sm2p256_neg_test() {
+        let a = BigUint::from_bytes_be(&hex::decode("fffffffeffffffffffffffffffffffffffffffff00000001ffffffffffffffff").unwrap());
+        println!("sm2p256_neg_test: {}", neg_sm2p256(&a).to_str_radix(16));
+    }
 
-#[test]
-fn sm2p256_point_double_test() {
-    let ori_point_g = [BigUint::from_bytes_be(&hex::decode("32c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7").unwrap()),
-        BigUint::from_bytes_be(&hex::decode("bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0").unwrap())];
-    let mont_ori_point_g = [norop_to_mont_sm2p256(&ori_point_g[0]), norop_to_mont_sm2p256(&ori_point_g[1])];
-    let projective_mont_point_g = norop_to_jacobi_sm2p256(&mont_ori_point_g);
-    let double_projective_mont_point_g = norop_point_double_sm2p256(&projective_mont_point_g);
-    let double_affine_mont_point_g = norop_to_affine_sm2p256(&double_projective_mont_point_g);
-    println!("double g_x: {}, g_y: {}",
-             double_affine_mont_point_g[0].to_str_radix(16),
-             double_affine_mont_point_g[1].to_str_radix(16))
-}
+    #[test]
+    fn sm2p256_sub_test() {
+        let a = BigUint::from_bytes_be(&hex::decode("fffffc4d0000064efffffb8c00000324fffffdc600000543fffff8950000053b").unwrap());
+        let b = BigUint::from_bytes_be(&hex::decode("fffffc4d0000064efffffb8c00000324fffffdc600000543fffff8950000053b").unwrap());
+        println!("sm2p256_sub_test 1: {}", sub_sm2p256(&a, &b).to_str_radix(16));
 
-#[test]
-fn sm2p256_point_add_test() {
-    let g_2 = [BigUint::from_bytes_be(&hex::decode("0d7e9c18caa5736a5349d94b5788cd2483bdc9ba2d8fa9380af037bfbc3be46a").unwrap()),
-        BigUint::from_bytes_be(&hex::decode("947e74656c21bdf5c7b145169b7157acccbd8d37c4a8e82b6a7e1a1d69db9ac1").unwrap())];
-    let g_4 = [BigUint::from_bytes_be(&hex::decode("50dc8e3ac899dbe18a86bcb4a09f9020487ea27fe9016209393f7c5a98615060").unwrap()),
-        BigUint::from_bytes_be(&hex::decode("6ffc31c525bce9e34d0bd55632cf70ed1de135ea7c7383bdfc099043fd619998").unwrap())];
-    let pro_g_2 = norop_to_jacobi_sm2p256(&g_2);
-    let pro_g_4 = norop_to_jacobi_sm2p256(&g_4);
-    let pro_g_6 = norop_point_add_sm2p256(&pro_g_2, &pro_g_4);
-    let aff_g_6 = norop_to_affine_sm2p256(&pro_g_6);
-    println!("6g_x: {}, 6g_y: {}", aff_g_6[0].to_str_radix(16), aff_g_6[1].to_str_radix(16))
-}
+        let a = BigUint::from_bytes_be(&hex::decode("0100000000000000000000000000000001000000000000000000000001").unwrap());
+        let b = BigUint::from_bytes_be(&hex::decode("fffffffeffffffffffffffffffffffffffffffff00000001ffffffffffffffff").unwrap());
+        println!("sm2p256_sub_test 2: {}", sub_sm2p256(&a, &b).to_str_radix(16));
+    }
 
-#[test]
-fn sm2p256_point_mul_test() {
-    let ori_point_g = [BigUint::from_bytes_be(&hex::decode("32c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7").unwrap()),
-        BigUint::from_bytes_be(&hex::decode("bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0").unwrap())];
-    let mont_ori_point_g = [norop_to_mont_sm2p256(&ori_point_g[0]), norop_to_mont_sm2p256(&ori_point_g[1])];
-    let projective_mont_point_g = norop_to_jacobi_sm2p256(&mont_ori_point_g);
+    #[test]
+    fn sm2p256_inv_test() {
+        let a = BigUint::from_bytes_be(&hex::decode("fffffc4d0000064efffffb8c00000324fffffdc600000543fffff8950000053b").unwrap());
+        let res_mon = norop_mont_inv_sm2p256(&norop_to_mont_sm2p256(&a));
+        println!("sm2p256_inv_test: {}", mont_pro_sm2p256(&res_mon, &BigUint::new(vec![1])).to_str_radix(16));
+    }
 
-    let scalar = shl_sm2p256(&BigUint::new(vec![31]), 7 * 1);
-    let pro_point = norop_point_mul_sm2p256(&projective_mont_point_g, &scalar);
-    let aff_point = norop_to_affine_sm2p256(&pro_point);
-    println!("affine_point: {}, affine_point: {}", aff_point[0].to_str_radix(16), aff_point[1].to_str_radix(16))
-}
+    #[test]
+    fn shl_sm2p256_test() {
+        let a = BigUint::from_bytes_be(&hex::decode("fffffc4d0000064efffffb8c00000324fffffdc600000543fffff8950000053b").unwrap());
+        println!("shl_sm2p256_test: {}", shl_sm2p256(&a, 7).to_str_radix(16));
+    }
 
-#[test]
-fn sm2p256_scalar_mul_test() {
-    let a = BigUint::from_bytes_be(&hex::decode("01").unwrap());
-    let b = BigUint::from_bytes_be(&hex::decode("fffffffeffffffffffffffffffffffff7203df6b21c6052b53bbf40939d54122").unwrap());
-    println!("{}", norop_scalar_mont_pro_sm2p256(&a, &b).to_str_radix(16));
-}
+    #[test]
+    fn sm2p256_point_double_test() {
+        let ori_point_g = [BigUint::from_bytes_be(&hex::decode("32c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7").unwrap()),
+            BigUint::from_bytes_be(&hex::decode("bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0").unwrap())];
+        let mont_ori_point_g = [norop_to_mont_sm2p256(&ori_point_g[0]), norop_to_mont_sm2p256(&ori_point_g[1])];
+        let projective_mont_point_g = norop_to_jacobi_sm2p256(&mont_ori_point_g);
+        let double_projective_mont_point_g = norop_point_double_sm2p256(&projective_mont_point_g);
+        println!("sm2p256_point_double_test 1: x: {}, y: {}",
+                 double_projective_mont_point_g[0].to_str_radix(16),
+                 double_projective_mont_point_g[1].to_str_radix(16));
+        let double_affine_mont_point_g = norop_to_affine_sm2p256(&double_projective_mont_point_g);
+        println!("sm2p256_point_double_test 2: double g_x: {}, g_y: {}",
+                 double_affine_mont_point_g[0].to_str_radix(16),
+                 double_affine_mont_point_g[1].to_str_radix(16));
+    }
 
-#[test]
-fn sm2p256_calar_mul_rep_test() {
-    let a = BigUint::from_bytes_be(&hex::decode("fffffc4d0000064efffffb8c00000324fffffdc600000543fffff8950000053b").unwrap());
-    println!("{}", norop_scalar_mul_rep_sm2p256(&norop_scalar_to_mont_sm2p256(&a), 5).to_str_radix(16));
+    #[test]
+    fn sm2p256_point_add_test() {
+        let g_2 = [BigUint::from_bytes_be(&hex::decode("0d7e9c18caa5736a5349d94b5788cd2483bdc9ba2d8fa9380af037bfbc3be46a").unwrap()),
+            BigUint::from_bytes_be(&hex::decode("947e74656c21bdf5c7b145169b7157acccbd8d37c4a8e82b6a7e1a1d69db9ac1").unwrap())];
+        let g_4 = [BigUint::from_bytes_be(&hex::decode("50dc8e3ac899dbe18a86bcb4a09f9020487ea27fe9016209393f7c5a98615060").unwrap()),
+            BigUint::from_bytes_be(&hex::decode("6ffc31c525bce9e34d0bd55632cf70ed1de135ea7c7383bdfc099043fd619998").unwrap())];
+        let pro_g_2 = norop_to_jacobi_sm2p256(&g_2);
+        let pro_g_4 = norop_to_jacobi_sm2p256(&g_4);
+        let pro_g_6 = norop_point_add_sm2p256(&pro_g_2, &pro_g_4);
+        println!("sm2p256_point_add_test 1: x: {}, y: {}",
+                 pro_g_6[0].to_str_radix(16),
+                 pro_g_6[1].to_str_radix(16));
+        let aff_g_6 = norop_to_affine_sm2p256(&pro_g_6);
+        println!("sm2p256_point_add_test 2: 6g_x: {}, 6g_y: {}", aff_g_6[0].to_str_radix(16), aff_g_6[1].to_str_radix(16))
+    }
+
+    #[test]
+    fn sm2p256_point_mul_test() {
+        let ori_point_g = [BigUint::from_bytes_be(&hex::decode("32c4ae2c1f1981195f9904466a39c9948fe30bbff2660be1715a4589334c74c7").unwrap()),
+            BigUint::from_bytes_be(&hex::decode("bc3736a2f4f6779c59bdcee36b692153d0a9877cc62a474002df32e52139f0a0").unwrap())];
+        let mont_ori_point_g = [norop_to_mont_sm2p256(&ori_point_g[0]), norop_to_mont_sm2p256(&ori_point_g[1])];
+        let projective_mont_point_g = norop_to_jacobi_sm2p256(&mont_ori_point_g);
+
+        let scalar = shl_sm2p256(&BigUint::new(vec![31]), 7 * 1);
+        let pro_point = norop_point_mul_sm2p256(&projective_mont_point_g, &scalar);
+        println!("sm2p256_point_mul_test 1: x: {}, y: {}",
+                 pro_point[0].to_str_radix(16),
+                 pro_point[1].to_str_radix(16));
+        let aff_point = norop_to_affine_sm2p256(&pro_point);
+        println!("sm2p256_point_mul_test 2: affine_point: {}, affine_point: {}", aff_point[0].to_str_radix(16), aff_point[1].to_str_radix(16))
+    }
+
+    #[test]
+    fn sm2p256_scalar_mul_test() {
+        let a = BigUint::from_bytes_be(&hex::decode("01").unwrap());
+        let b = BigUint::from_bytes_be(&hex::decode("fffffffeffffffffffffffffffffffff7203df6b21c6052b53bbf40939d54122").unwrap());
+        println!("sm2p256_scalar_mul_test: {}", norop_scalar_mont_pro_sm2p256(&a, &b).to_str_radix(16));
+    }
+
+    #[test]
+    fn sm2p256_calar_mul_rep_test() {
+        let a = BigUint::from_bytes_be(&hex::decode("fffffc4d0000064efffffb8c00000324fffffdc600000543fffff8950000053b").unwrap());
+        println!("sm2p256_calar_mul_rep_test: {}", norop_scalar_mul_rep_sm2p256(&a, 5).to_str_radix(16));
+    }
+
+    #[test]
+    fn norop_sqr_mul_sm2p256_test() {
+        let a = BigUint::from_bytes_be(&hex::decode("fffffc4d0000064efffffb8c00000324fffffdc600000543fffff8950000053b").unwrap());
+        let b = BigUint::from_bytes_be(&hex::decode("52ab139ac09ec8307bdb6926ab664658d3f55c3f46cdfd7516553623adc0a99a").unwrap());
+        println!("norop_sqr_mul_sm2p256_test: {}", norop_sqr_mul_sm2p256(&a, 4, &b).to_str_radix(16));
+    }
 }
 
 #[cfg(feature = "internal_benches")]
@@ -600,10 +666,21 @@ mod internal_benches {
     fn elem_product_bench(bench: &mut test::Bencher) {
         // This benchmark assumes that the multiplication is constant-time
         // so 0 * 0 is as good of a choice as anything.
-        let a = BigUint::from_bytes_be(&hex::decode("00").unwrap());
-        let b = BigUint::from_bytes_be(&hex::decode("00").unwrap());
+        let a = BigUint::from_bytes_be(&hex::decode("fffffffeffffffffffffffffffffffff7203df6b21c6052b53bbf40939d54122").unwrap());
+        let b = BigUint::from_bytes_be(&hex::decode("fffffffeffffffffffffffffffffffff7203df6b21c6052b53bbf40939d54789").unwrap());
         bench.iter(|| {
             let _ = mont_pro_sm2p256(&a, &b);
+        });
+    }
+
+    #[bench]
+    fn elem_product_next_bench(bench: &mut test::Bencher) {
+        // This benchmark assumes that the multiplication is constant-time
+        // so 0 * 0 is as good of a choice as anything.
+        let a = BigUint::from_bytes_be(&hex::decode("fffffffeffffffffffffffffffffffff7203df6b21c6052b53bbf40939d54122").unwrap());
+        let b = BigUint::from_bytes_be(&hex::decode("fffffffeffffffffffffffffffffffff7203df6b21c6052b53bbf40939d54789").unwrap());
+        bench.iter(|| {
+            let _ = mont_pro_sm2p256_next(&a, &b);
         });
     }
 

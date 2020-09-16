@@ -161,20 +161,20 @@ impl EcdsaKeyPair {
         let (seed, public_key) = key_pair.split();
         let d = private_key::private_key_as_scalar(alg.private_key_ops, &seed);
 
-        if alg.id == AlgorithmID::ECDSA_SM2P256_SM3_ASN1_SIGNING {
-            let nonce_key = NonceRandomKey::new(alg, seed, rng)?;
-            let d: Scalar<R> = Scalar {
-                limbs: d.limbs,
-                m: PhantomData,
-                encoding: PhantomData,
-            };
-            return Ok(Self {
-                d,
-                nonce_key,
-                alg,
-                public_key: PublicKey(public_key),
-            });
-        }
+        // if alg.id == AlgorithmID::ECDSA_SM2P256_SM3_ASN1_SIGNING {
+        //     let nonce_key = NonceRandomKey::new(alg, seed, rng)?;
+        //     let d: Scalar<R> = Scalar {
+        //         limbs: d.limbs,
+        //         m: PhantomData,
+        //         encoding: PhantomData,
+        //     };
+        //     return Ok(Self {
+        //         d,
+        //         nonce_key,
+        //         alg,
+        //         public_key: PublicKey(public_key),
+        //     });
+        // }
 
         let d = alg
             .private_scalar_ops
@@ -197,20 +197,20 @@ impl EcdsaKeyPair {
         rng: &dyn rand::SecureRandom,
         message: &[u8],
     ) -> Result<signature::Signature, error::Unspecified> {
-        if self.alg.id == AlgorithmID::ECDSA_SM2P256_SM3_ASN1_SIGNING {
-            let ctx = sm2::signature::SigCtx::new();
-            let sk = self.d.to_big_uint(self.alg.private_key_ops.common.num_limbs);
-            let raw_sig = ctx.sign(message, &sk, &ctx.pk_from_sk(&sk));
-            let mut der_sig = raw_sig.der_encode();
-            return Ok(signature::Signature::new(move |value| {
-                let orn = der_sig.len();
-                while der_sig.len() < value.len() {
-                    der_sig.push(0);
-                }
-                value.copy_from_slice(&der_sig);
-                orn
-            }));
-        }
+        // if self.alg.id == AlgorithmID::ECDSA_SM2P256_SM3_ASN1_SIGNING {
+        //     let ctx = sm2::signature::SigCtx::new();
+        //     let sk = self.d.to_big_uint(self.alg.private_key_ops.common.num_limbs);
+        //     let raw_sig = ctx.sign(message, &sk, &ctx.pk_from_sk(&sk));
+        //     let mut der_sig = raw_sig.der_encode();
+        //     return Ok(signature::Signature::new(move |value| {
+        //         let orn = der_sig.len();
+        //         while der_sig.len() < value.len() {
+        //             der_sig.push(0);
+        //         }
+        //         value.copy_from_slice(&der_sig);
+        //         orn
+        //     }));
+        // }
         // Step 4 (out of order).
         let h = digest::digest(self.alg.digest_alg, message);
 

@@ -272,6 +272,25 @@ pub(crate) fn norop256_add_u512_u128(a: &[u64; 8], b: &[u64; 8]) -> [u64; 9] {
     res
 }
 
+#[inline] fn norop256_mul_u256_u64(a: &[u64; 4], b: &[u64; 1]) -> [u64; 5] {
+    let mut res: [u64; 5] = [0; 5];
+
+    let mut tmp_pair = u128pair::u64_mul(a[0], b[0]);
+    res[0] = tmp_pair.0 as u64;
+    tmp_pair = u128pair::new(tmp_pair.1, 0)
+        .pair_add(&u128pair::u64_mul(a[1], b[0]));
+    res[1] = tmp_pair.0 as u64;
+    tmp_pair = u128pair::new(tmp_pair.1, 0)
+        .pair_add(&u128pair::u64_mul(a[2], b[0]));
+    res[2] = tmp_pair.0 as u64;
+    tmp_pair = u128pair::new(tmp_pair.1, 0)
+        .pair_add(&u128pair::u64_mul(a[3], b[0]));
+    res[3] = tmp_pair.0 as u64;
+    res[4] = tmp_pair.1 as u64;
+
+    res
+}
+
 #[inline]
 pub(crate) fn norop256_mul_u512_u128(a: &[u64; 8], b: &[u64; 4]) -> [u64; 12] {
     let mut res: [u64; 12] = [0; 12];

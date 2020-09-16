@@ -1184,7 +1184,7 @@ fn greater_than(a: &Nonnegative, b: &Nonnegative) -> bool {
 
 #[derive(Clone)]
 #[repr(transparent)]
-struct N0([Limb; 2]);
+pub struct N0(pub [Limb; 2]);
 
 const N0_LIMBS_USED: usize = 64 / LIMB_BITS;
 
@@ -1204,7 +1204,7 @@ impl From<u64> for N0 {
 }
 
 /// r *= a
-fn limbs_mont_mul(r: &mut [Limb], a: &[Limb], m: &[Limb], n0: &N0) {
+pub fn limbs_mont_mul(r: &mut [Limb], a: &[Limb], m: &[Limb], n0: &N0) {
     debug_assert_eq!(r.len(), m.len());
     debug_assert_eq!(a.len(), m.len());
 
@@ -1446,6 +1446,9 @@ mod tests {
 
                 let b = into_encoded(b, &m);
                 let a = into_encoded(a, &m);
+                let mut c = a.limbs.limbs.to_vec();
+                c.reverse();
+                println!("{:x?}", &c[..]);
                 let actual_result = elem_mul(&a, b, &m);
                 let actual_result = actual_result.into_unencoded(&m);
                 assert_elem_eq(&actual_result, &expected_result);
