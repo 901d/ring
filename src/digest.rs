@@ -612,3 +612,25 @@ mod tests {
         max_input_tests!(SHA512);
     }
 }
+
+#[cfg(feature = "internal_benches")]
+mod internal_digest_benches {
+
+    use crate::digest;
+
+    extern crate test;
+
+    #[bench]
+    fn sha256_bench(bench: &mut test::Bencher){
+        bench.iter(|| {
+            let _ = digest::digest(&digest::SHA256, b"hello, world");
+        });
+    }
+
+    #[bench]
+    fn sm3_bench(bench: &mut test::Bencher){
+        bench.iter(|| {
+            let _ = digest::digest(&digest::SM3_256, b"hello, world");
+        });
+    }
+}

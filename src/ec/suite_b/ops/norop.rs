@@ -615,7 +615,8 @@ mod test {
         let mont_ori_point_g = [norop_to_mont_sm2p256(&ori_point_g[0]), norop_to_mont_sm2p256(&ori_point_g[1])];
         let projective_mont_point_g = norop_to_jacobi_sm2p256(&mont_ori_point_g);
 
-        let scalar = shl_sm2p256(&BigUint::new(vec![31]), 7 * 1);
+
+        let scalar = shl_sm2p256(&BigUint::new(vec![31]), 8 * 1);
         let pro_point = norop_point_mul_sm2p256(&projective_mont_point_g, &scalar);
         println!("sm2p256_point_mul_test 1: x: {}, y: {}",
                  pro_point[0].to_str_radix(16),

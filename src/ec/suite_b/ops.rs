@@ -1264,3 +1264,4 @@ pub mod norop;
 pub mod norop256;
 mod norop256_test;
 mod sm2p256_norop;
+mod sm2p256_table;

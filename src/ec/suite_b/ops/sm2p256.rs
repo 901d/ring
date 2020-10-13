@@ -138,30 +138,9 @@ fn sm2p256_elem_inv_squared(a: &Elem<R>) -> Elem<R> {
 fn sm2p256_point_mul_base_impl(g_scalar: &Scalar) -> Point {
     let mut r = Point::new_at_infinity();
 
-    static GENERATOR: (Elem<R>, Elem<R>) = (
-        Elem {
-            limbs: p256_limbs![
-            0xf418029e, 0x61328990, 0xdca6c050, 0x3e7981ed, 0xac24c3c3, 0xd6a1ed99,
-            0xe1c13b05, 0x91167a5e
-        ],
-            m: PhantomData,
-            encoding: PhantomData,
-        },
-        Elem {
-            limbs: p256_limbs![
-            0x3c2d0ddd, 0xc1354e59, 0x8d3295fa, 0xc1f5e578, 0x6e2a48f8, 0x8d4cfb06,
-            0x81d735bd, 0x63cd65d4
-        ],
-            m: PhantomData,
-            encoding: PhantomData,
-        },
-    );
-
-    sm2p256_norop::Norop_sm2p256_point_mul(
+    sm2p256_norop::Norop_sm2p256_point_mul_base(
         r.xyz.as_mut_ptr(),
         g_scalar.limbs.as_ptr(),
-        GENERATOR.0.limbs.as_ptr(),
-        GENERATOR.1.limbs.as_ptr(),
     );
 
     r

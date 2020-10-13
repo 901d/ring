@@ -412,4 +412,37 @@ mod internal_benches {
             encoding: PhantomData,
         },
     ]);
+
+    #[bench]
+    fn GFp_nistz256_mul_mont_bench(bench: &mut test::Bencher) {
+        let mut r: [Limb; 4] = [0, 0, 0, 0];
+        let a: &[Limb] = &[0xfffff8950000053b, 0xfffffdc600000543, 0xfffffb8c00000324, 0xfffffc4d0000064e];
+        bench.iter(||
+            {
+                unsafe {
+                    GFp_nistz256_mul_mont(
+                        r.as_mut_ptr(),
+                        a.as_ptr(),
+                        a.as_ptr(),
+                    )
+                }
+            });
+    }
+
+    #[bench]
+    fn GFp_nistz256_add_bench(bench: &mut test::Bencher) {
+        let mut r: [Limb; 4] = [0, 0, 0, 0];
+        let a: &[Limb] = &[0xfaf037bfbc3be46a, 0x83bdc9ba2d8fa938, 0x5349d94b5788cd24, 0x0d7e9c18caa5736a];
+        let b: &[Limb] = &[0x6a7e1a1d69db9ac1, 0xccbd8d37c4a8e82b, 0xc7b145169b7157ac, 0x947e74656c21bdf5];
+        bench.iter(||
+            {
+                unsafe {
+                    GFp_nistz256_add(
+                        r.as_mut_ptr(),
+                        a.as_ptr(),
+                        b.as_ptr(),
+                    )
+                }
+            });
+    }
 }

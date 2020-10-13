@@ -116,9 +116,11 @@ void LIMBS_add_mod(Limb r[], const Limb a[], const Limb b[], const Limb m[],
       constant_time_is_nonzero_w(limbs_add(r, a, b, num_limbs));
   Limb overflow2 = ~LIMBS_less_than(r, m, num_limbs);
   Limb overflow = overflow1 | overflow2;
-  Carry borrow = limb_sub(&r[0], r[0], m[0] & overflow);
-  for (size_t i = 1; i < num_limbs; ++i) {
-    borrow = limb_sbb(&r[i], r[i], m[i] & overflow, borrow);
+  if (overflow) {
+    Carry borrow = limb_sub(&r[0], r[0], m[0] & overflow);
+    for (size_t i = 1; i < num_limbs; ++i) {
+      borrow = limb_sbb(&r[i], r[i], m[i] & overflow, borrow);
+    }
   }
 }
 
@@ -126,9 +128,11 @@ void LIMBS_sub_mod(Limb r[], const Limb a[], const Limb b[], const Limb m[],
                    size_t num_limbs) {
   Limb underflow =
       constant_time_is_nonzero_w(limbs_sub(r, a, b, num_limbs));
-  Carry carry = limb_add(&r[0], r[0], m[0] & underflow);
-  for (size_t i = 1; i < num_limbs; ++i) {
-    carry = limb_adc(&r[i], r[i], m[i] & underflow, carry);
+  if (underflow) {
+    Carry carry = limb_add(&r[0], r[0], m[0] & underflow);
+    for (size_t i = 1; i < num_limbs; ++i) {
+      carry = limb_adc(&r[i], r[i], m[i] & underflow, carry);
+    }
   }
 }
 
@@ -144,9 +148,11 @@ void LIMBS_shl_mod(Limb r[], const Limb a[], const Limb m[], size_t num_limbs) {
   }
   Limb overflow2 = ~LIMBS_less_than(r, m, num_limbs);
   Limb overflow = overflow1 | overflow2;
-  Carry borrow = limb_sub(&r[0], r[0], m[0] & overflow);
-  for (size_t i = 1; i < num_limbs; ++i) {
-    borrow = limb_sbb(&r[i], r[i], m[i] & overflow, borrow);
+  if (overflow) {
+    Carry borrow = limb_sub(&r[0], r[0], m[0] & overflow);
+    for (size_t i = 1; i < num_limbs; ++i) {
+      borrow = limb_sbb(&r[i], r[i], m[i] & overflow, borrow);
+    }
   }
 }
 

@@ -12,11 +12,12 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-use crate::ec::suite_b::ops::norop256::{norop256_mul_u128, norop256_mul_u512_u128, norop256_add_u512_u128};
+use crate::ec::suite_b::ops::norop256::{norop256_mul_u128, norop256_mul_u512_u128, norop256_add_u512_u128, norop256_limbs_sub_mod, norop256_limbs_add_mod};
 use crate::limb::{Limb, LimbMask};
 use crate::c;
 use crate::arithmetic::bigint::{limbs_mont_mul, N0};
 use std::slice;
+use crate::ec::suite_b::ops::sm2p256_table::SM2P256_PRECOMPUTED;
 
 extern "C" {
     fn LIMBS_shl_mod(r: *mut Limb, a: *const Limb, m: *const Limb, num_limbs: c::size_t);
@@ -30,6 +31,7 @@ pub static CURVE_PARAMS: curve_params = curve_params {
     p: [0xffffffffffffffff, 0xffffffff00000000, 0xffffffffffffffff, 0xfffffffeffffffff],
     n: [0x53bbf40939d54123, 0x7203df6b21c6052b, 0xffffffffffffffff, 0xfffffffeffffffff],
     p_inv_r_neg: [0x0000000000000001, 0xffffffff00000001, 0xfffffffe00000000, 0xfffffffc00000001],
+    r_p: [0x0000000000000001, 0x00000000ffffffff, 0x0000000000000000, 0x100000000],
     rr_p: [0x0000000200000003, 0x00000002ffffffff, 0x0000000100000001, 0x0400000002],
     n_inv_r_neg: [0x327f9e8872350975, 0xdf1e8d34fc8319a5, 0x2b0068d3b08941d4, 0x6f39132f82e4c7bc],
     rr_n: [0x901192af7c114f20, 0x3464504ade6fa2fa, 0x620fc84c3affe0d4, 0x1eb5e412a22b3d3b],
@@ -38,16 +40,17 @@ pub static CURVE_PARAMS: curve_params = curve_params {
 };
 
 pub struct curve_params {
-    a: [u64; 4],
-    b: [u64; 4],
-    p: [u64; 4],
-    n: [u64; 4],
-    p_inv_r_neg: [u64; 4],
-    rr_p: [u64; 4],
-    n_inv_r_neg: [u64; 4],
-    rr_n: [u64; 4],
-    n0: N0,
-    nn0: N0,
+    pub a: [u64; 4],
+    pub b: [u64; 4],
+    pub p: [u64; 4],
+    pub n: [u64; 4],
+    pub p_inv_r_neg: [u64; 4],
+    pub r_p: [u64; 4],
+    pub rr_p: [u64; 4],
+    pub n_inv_r_neg: [u64; 4],
+    pub rr_n: [u64; 4],
+    pub n0: N0,
+    pub nn0: N0,
 }
 
 pub(super) extern "C" fn Norop_sm2p256_add(
@@ -94,6 +97,14 @@ pub(super) extern "C" fn Norop_sm2p256_point_mul(
 ) {
     let r_arr = unsafe {[r, r.offset(4), r.offset(8)]};
     norop_point_mul_sm2p256(r_arr, norop_to_jacobi_sm2p256([p_x, p_y]), p_scalar);
+}
+
+pub(super) extern "C" fn Norop_sm2p256_point_mul_base(
+    r: *mut Limb,          // [3][COMMON_OPS.num_limbs]
+    p_scalar: *const Limb, // [COMMON_OPS.num_limbs]
+) {
+    let r_arr = unsafe {[r, r.offset(4), r.offset(8)]};
+    norop_point_mul_base_sm2p256(r_arr, p_scalar);
 }
 
 // rem = a * b * r^-1 modn
@@ -153,23 +164,13 @@ fn add_sm2p256(
     a: *const Limb, // [COMMON_OPS.num_limbs]
     b: *const Limb, // [COMMON_OPS.num_limbs]
 ) {
-    extern "C" {
-        // `r` and `a` may alias.
-        fn LIMBS_add_mod(
-            r: *mut Limb,
-            a: *const Limb,
-            b: *const Limb,
-            m: *const Limb,
-            num_limbs: c::size_t,
-        );
-    }
     unsafe {
-        LIMBS_add_mod(
-            r,
-            a,
-            b,
-            CURVE_PARAMS.p.as_ptr(),
-            CURVE_PARAMS.p.len(),
+        norop256_limbs_add_mod(
+            slice::from_raw_parts_mut(r, 4),
+            slice::from_raw_parts(a, 4),
+            slice::from_raw_parts(b, 4),
+            &CURVE_PARAMS.p,
+            CURVE_PARAMS.p.len()
         )
     }
 }
@@ -186,34 +187,16 @@ fn sub_sm2p256(
     a: *const Limb, // [COMMON_OPS.num_limbs]
     b: *const Limb, // [COMMON_OPS.num_limbs]
 ) {
-    extern "C" {
-        // `r` and `a` may alias.
-        fn LIMBS_sub_mod(
-            r: *mut Limb,
-            a: *const Limb,
-            b: *const Limb,
-            m: *const Limb,
-            num_limbs: c::size_t,
-        );
-    }
     unsafe {
-        LIMBS_sub_mod(
-            r,
-            a,
-            b,
-            CURVE_PARAMS.p.as_ptr(),
-            CURVE_PARAMS.p.len(),
-        );
+        norop256_limbs_sub_mod(
+            slice::from_raw_parts_mut(r, 4),
+            slice::from_raw_parts(a, 4),
+            slice::from_raw_parts(b, 4),
+            &CURVE_PARAMS.p,
+            CURVE_PARAMS.p.len()
+        )
     }
 }
-//
-// fn mul_sm2p256(
-//     a: &BigUint,
-//     m: usize,
-// ) -> BigUint {
-//     assert!(a.bits() <= 256);
-//     mod_sm2p256(&(m * a))
-// }
 
 // a << b
 fn shl_sm2p256(
@@ -401,7 +384,6 @@ fn norop_point_mul_sm2p256(
         core::ptr::copy(a[0], a_order[0], 4);
         core::ptr::copy(a[1], a_order[1], 4);
         core::ptr::copy(a[2], a_order[2], 4);
-        core::ptr::copy(lam.clone().as_mut_ptr(), r[2], 4);
     }
 
     for scalar_byte in scalar_bz {
@@ -416,6 +398,41 @@ fn norop_point_mul_sm2p256(
             bit += 1;
         }
     }
+}
+
+fn norop_point_mul_base_sm2p256(
+    r: [*mut Limb; 3],
+    p_scalar: *const Limb, // [COMMON_OPS.num_limbs]
+) {
+    let scalar_ptr = p_scalar as *const u8;
+    let scalar_bz = unsafe { slice::from_raw_parts(scalar_ptr, 32) };
+
+    for (index, scalar_byte) in scalar_bz.iter().enumerate() {
+        let raw_index = (scalar_byte & 0x7f) as usize;
+        if raw_index != 0 {
+            let r_const: [*const Limb; 3] = [r[0], r[1], r[2]];
+            let a_order_const: [*const Limb; 3] = norop_to_jacobi_sm2p256([SM2P256_PRECOMPUTED[index][raw_index*2-2].as_ptr(), SM2P256_PRECOMPUTED[index][raw_index*2-1].as_ptr()]);
+            norop_point_add_sm2p256(r, r_const, a_order_const);
+        }
+        if scalar_byte & 0x80 != 0 {
+            let r_const: [*const Limb; 3] = [r[0], r[1], r[2]];
+            let a_order_const: [*const Limb; 3] = norop_to_jacobi_sm2p256([SM2P256_PRECOMPUTED[index][254].as_ptr(), SM2P256_PRECOMPUTED[index][255].as_ptr()]);
+            norop_point_add_sm2p256(r, r_const, a_order_const);
+        }
+    }
+
+    // let mut start = 0;
+    // for index in 0..37 {
+    //     let be = index * 7 / 8;
+    //     let mut scalar_byte =  scalar_bz[be] << start;
+    //     if start > 1 {
+    //         start -= 1;
+    //         scalar_byte += scalar_bz[be-1] >> (7 - start)
+    //     } else {
+    //         start = (start + 7) % 8;
+    //     }
+    //     scalar_byte &= 0x7f;
+    // }
 }
 
 // (`a` squared `squarings` times) * b
@@ -508,6 +525,8 @@ pub(crate) fn mont_pro_sm2p256_next(
 mod sm2p256_norop_test {
     use crate::limb::Limb;
     use crate::ec::suite_b::ops::sm2p256_norop::*;
+    use crate::ec::suite_b::private_key::affine_from_jacobian;
+    use crate::ec::suite_b::ops::{sm2p256, Point};
 
     #[test]
     fn norop_sqr_mul_sm2p256_test() {
@@ -647,6 +666,25 @@ mod sm2p256_norop_test {
     }
 
     #[test]
+    fn sm2p256_point_mul_base_test() {
+        let scalar: &[Limb] = &[0xfffff8950000053b, 0xfffffdc600000543, 0xfffffb8c00000324, 0xfffffc4d0000064e];
+        let lam: [Limb; 4] = [0, 0, 0, 0];
+        let pro_point: [*mut Limb; 3] = [lam.clone().as_mut_ptr(), lam.clone().as_mut_ptr(), lam.clone().as_mut_ptr()];
+        norop_point_mul_base_sm2p256(pro_point, scalar.as_ptr());
+
+        let mut nor_point = Point::new_at_infinity();
+        unsafe {
+            nor_point.xyz[0..4].copy_from_slice(slice::from_raw_parts(pro_point[0], 4));
+            nor_point.xyz[4..8].copy_from_slice(slice::from_raw_parts(pro_point[1], 4));
+            nor_point.xyz[8..12].copy_from_slice(slice::from_raw_parts(pro_point[2], 4));
+        }
+        let mut aff_point = affine_from_jacobian(&sm2p256::PRIVATE_KEY_OPS, &nor_point).unwrap();
+        aff_point.0.limbs.reverse();
+        aff_point.1.limbs.reverse();
+        println!("sm2p256_point_mul_base_test: x: {:x?}, y: {:x?}", aff_point.0.limbs, aff_point.1.limbs);
+    }
+
+    #[test]
     fn sm2p256_scalar_mul_test() {
         let r: &mut [Limb] = &mut [0, 0, 0, 0];
         let a: &[Limb] = &[1, 0, 0, 0];
@@ -669,16 +707,126 @@ mod sm2p256_norop_test {
 #[cfg(feature = "internal_benches")]
 mod bigint_benches {
     use crate::limb::Limb;
-    use crate::ec::suite_b::ops::sm2p256_norop::mont_pro_sm2p256;
+    use crate::ec::suite_b::ops::sm2p256_norop::{CURVE_PARAMS, sub_sm2p256, add_sm2p256, norop_point_mul_sm2p256, norop_to_jacobi_sm2p256, norop_point_add_sm2p256, norop_point_double_sm2p256};
+    use crate::arithmetic::bigint::N0;
+    use crate::c;
 
     extern crate test;
 
     #[bench]
-    fn limbs_mont_mul_test(bench: &mut test::Bencher) {
-        let r: &mut [Limb] = &mut [0xfffff8950000053b, 0xfffffdc600000543, 0xfffffb8c00000324, 0xfffffc4d0000064e];
+    fn GFp_bn_mul_mont_bench(bench: &mut test::Bencher) {
+        extern "C" {
+            // `r` and/or 'a' and/or 'b' may alias.
+            fn GFp_bn_mul_mont(
+                r: *mut Limb,
+                a: *const Limb,
+                b: *const Limb,
+                n: *const Limb,
+                n0: &N0,
+                num_limbs: c::size_t,
+            );
+        }
+        let mut r: [Limb; 4] = [0, 0, 0, 0];
         let a: &[Limb] = &[0xfffff8950000053b, 0xfffffdc600000543, 0xfffffb8c00000324, 0xfffffc4d0000064e];
         bench.iter(||
-            {mont_pro_sm2p256(r.as_mut_ptr(), a.as_ptr(), a.as_ptr())});
+            {
+                unsafe {
+                    GFp_bn_mul_mont(
+                        r.as_mut_ptr(),
+                        a.as_ptr(),
+                        a.as_ptr(),
+                        CURVE_PARAMS.p.as_ptr(),
+                        &CURVE_PARAMS.n0,
+                        CURVE_PARAMS.p.len(),
+                    )
+                }
+            });
+    }
+
+    #[bench]
+    fn sub_sm2p256_bench(bench: &mut test::Bencher) {
+        let mut r: [Limb; 4] = [0, 0, 0, 0];
+        let a: &[Limb] = &[0x0af037bfbc3be46a, 0x83bdc9ba2d8fa938, 0x5349d94b5788cd24, 0x0d7e9c18caa5736a];
+        let b: &[Limb] = &[0x6a7e1a1d69db9ac1, 0xccbd8d37c4a8e82b, 0xc7b145169b7157ac, 0x947e74656c21bdf5];
+        bench.iter(||
+            {
+                sub_sm2p256(r.as_mut_ptr(), a.as_ptr(), b.as_ptr());
+            });
+    }
+
+    #[bench]
+    fn add_sm2p256_bench(bench: &mut test::Bencher) {
+        let mut r: [Limb; 4] = [0, 0, 0, 0];
+        let a: &[Limb] = &[0x1af037bfbc3be46a, 0x13bdc9ba2d8fa938, 0x1349d94b5788cd24, 0x0d7e9c18caa5736a];
+        let b: &[Limb] = &[0x6a7e1a1d69db9ac1, 0xccbd8d37c4a8e82b, 0xc7b145169b7157ac, 0x947e74656c21bdf5];
+        bench.iter(|| {
+            add_sm2p256(r.as_mut_ptr(), a.as_ptr(), b.as_ptr());
+        })
+    }
+
+    #[bench]
+    fn LIMBS_shl_mod_bench(bench: &mut test::Bencher) {
+        extern "C" {
+            fn LIMBS_shl_mod(
+                r: *mut Limb,
+                a: *const Limb,
+                m: *const Limb,
+                num_limbs: c::size_t
+            );
+        }
+        let mut r: [Limb; 4] = [0, 0, 0, 0];
+        let a: &[Limb] = &[0xfaf037bfbc3be46a, 0x83bdc9ba2d8fa938, 0x5349d94b5788cd24, 0x0d7e9c18caa5736a];
+        bench.iter(||
+            {
+                unsafe {
+                    LIMBS_shl_mod(
+                        r.as_mut_ptr(),
+                        a.as_ptr(),
+                        CURVE_PARAMS.p.as_ptr(),
+                        CURVE_PARAMS.p.len(),
+                    )
+                }
+            });
+    }
+
+    #[bench]
+    fn norop_point_add_sm2p256_bench(bench: &mut test::Bencher) {
+        let lam: [Limb; 4] = [0, 0, 0, 0];
+        let r: [*mut Limb; 3] = [lam.clone().as_mut_ptr(), lam.clone().as_mut_ptr(), lam.clone().as_mut_ptr()];
+        let g_2_x: &[Limb] = &[0x0af037bfbc3be46a, 0x83bdc9ba2d8fa938, 0x5349d94b5788cd24, 0x0d7e9c18caa5736a];
+        let g_2_y: &[Limb] = &[0x6a7e1a1d69db9ac1, 0xccbd8d37c4a8e82b, 0xc7b145169b7157ac, 0x947e74656c21bdf5];
+        let pro_g_2 = norop_to_jacobi_sm2p256([g_2_x.as_ptr(), g_2_y.as_ptr()]);
+        bench.iter(||
+            {
+                norop_point_add_sm2p256(r, pro_g_2, pro_g_2);
+            });
+    }
+
+    #[bench]
+    fn norop_point_double_sm2p256_bench(bench: &mut test::Bencher) {
+        let lam: [Limb; 4] = [0, 0, 0, 0];
+        let r: [*mut Limb; 3] = [lam.clone().as_mut_ptr(), lam.clone().as_mut_ptr(), lam.clone().as_mut_ptr()];
+        let g_2_x: &[Limb] = &[0x0af037bfbc3be46a, 0x83bdc9ba2d8fa938, 0x5349d94b5788cd24, 0x0d7e9c18caa5736a];
+        let g_2_y: &[Limb] = &[0x6a7e1a1d69db9ac1, 0xccbd8d37c4a8e82b, 0xc7b145169b7157ac, 0x947e74656c21bdf5];
+        let pro_g_2 = norop_to_jacobi_sm2p256([g_2_x.as_ptr(), g_2_y.as_ptr()]);
+        bench.iter(||
+            {
+                norop_point_double_sm2p256(r, pro_g_2);
+            });
+    }
+
+    #[bench]
+    fn norop_point_mul_sm2p256_bench(bench: &mut test::Bencher) {
+        let lam: [Limb; 4] = [0, 0, 0, 0];
+        let g_2_x: &[Limb] = &[0x0af037bfbc3be46a, 0x83bdc9ba2d8fa938, 0x5349d94b5788cd24, 0x0d7e9c18caa5736a];
+        let g_2_y: &[Limb] = &[0x6a7e1a1d69db9ac1, 0xccbd8d37c4a8e82b, 0xc7b145169b7157ac, 0x947e74656c21bdf5];
+        let pro_g_2 = norop_to_jacobi_sm2p256([g_2_x.as_ptr(), g_2_y.as_ptr()]);
+        let scalar: &[Limb] = &[0xfffff8950000053b, 0xfffffdc600000543, 0xfffffb8c00000324, 0xfffffc4d0000064e];
+        bench.iter(||
+            {
+                let r: [*mut Limb; 3] = [lam.clone().as_mut_ptr(), lam.clone().as_mut_ptr(), lam.clone().as_mut_ptr()];
+                norop_point_mul_sm2p256(r, pro_g_2, scalar.as_ptr());
+            });
     }
 }
 

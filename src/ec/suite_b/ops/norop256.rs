@@ -12,6 +12,11 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+use crate::limb::{Limb, DoubleLimb, LIMB_BITS, LimbMask};
+use std::num::Wrapping;
+use num_traits::WrappingSub;
+use crate::ec::suite_b::ops::sm2p256_norop::CURVE_PARAMS;
+
 struct u64pair(u64, u64);
 
 impl u64pair {
@@ -186,10 +191,24 @@ impl u128pair {
         self.1 = u;
         u128pair(v, u)
     }
+
+    #[inline]
+    fn pair_add_u64_after(&mut self, a: u64) -> Self {
+        let mut v = self.0 + u128::from(a);
+        let mut u = self.1;
+        if v > 0xffff_ffff_ffff_ffff {
+            u += v >> 64;
+            v &= 0xffff_ffff_ffff_ffff;
+        }
+        self.0 = v;
+        self.1 = u;
+        u128pair(v, u)
+    }
 }
 
 #[inline]
-fn u64_sub(a: u64, b: u64, borrow: bool) -> (u64, bool) {
+#[cfg(target_pointer_width = "64")]
+fn u64_sub(a: Limb, b: Limb, borrow: bool) -> (Limb, bool) {
     if borrow {
         if a > b {
             return (a - b - 1, false);
@@ -200,6 +219,14 @@ fn u64_sub(a: u64, b: u64, borrow: bool) -> (u64, bool) {
         return (0xffff_ffff_ffff_ffff - b + a + 1, true);
     }
     (a - b, false)
+}
+
+#[inline]
+#[cfg(target_pointer_width = "64")]
+fn u64_add(a: Limb, b: Limb, carry: bool) -> (Limb, bool) {
+    let mut v = DoubleLimb::from(a) + DoubleLimb::from(b) + DoubleLimb::from(carry);
+    let u = v >> LIMB_BITS;
+    (v as Limb, u != 0)
 }
 
 #[inline]
@@ -241,14 +268,14 @@ pub(crate) fn norop256_mul_u128(a: &[u64; 4], b: &[u64; 4]) -> [u64; 8] {
 }
 
 #[inline]
-fn norop256_add_u128(a: &[u64; 4], b: &[u64; 4]) -> [u64; 5] {
+pub(crate) fn norop256_add_u128(a: &[u64; 4], b: &[u64; 4]) -> [u64; 5] {
     let mut res: [u64; 5] = [0; 5];
 
     let mut tmp_pair = u128pair::u64_add(a[0], b[0]);
     res[0] = tmp_pair.0 as u64;
-    res[1] = tmp_pair.pair_add_u64(a[1]).pair_add_u64(b[1]).0 as u64;
-    res[2] = tmp_pair.pair_add_u64(a[2]).pair_add_u64(b[2]).0 as u64;
-    res[3] = tmp_pair.pair_add_u64(a[3]).pair_add_u64(b[3]).0 as u64;
+    res[1] = tmp_pair.pair_add_u64(a[1]).pair_add_u64_after(b[1]).0 as u64;
+    res[2] = tmp_pair.pair_add_u64(a[2]).pair_add_u64_after(b[2]).0 as u64;
+    res[3] = tmp_pair.pair_add_u64(a[3]).pair_add_u64_after(b[3]).0 as u64;
     res[4] = tmp_pair.1 as u64;
 
     res
@@ -260,13 +287,13 @@ pub(crate) fn norop256_add_u512_u128(a: &[u64; 8], b: &[u64; 8]) -> [u64; 9] {
 
     let mut tmp_pair = u128pair::u64_add(a[0], b[0]);
     res[0] = tmp_pair.0 as u64;
-    res[1] = tmp_pair.pair_add_u64(a[1]).pair_add_u64(b[1]).0 as u64;
-    res[2] = tmp_pair.pair_add_u64(a[2]).pair_add_u64(b[2]).0 as u64;
-    res[3] = tmp_pair.pair_add_u64(a[3]).pair_add_u64(b[3]).0 as u64;
-    res[4] = tmp_pair.pair_add_u64(a[4]).pair_add_u64(b[4]).0 as u64;
-    res[5] = tmp_pair.pair_add_u64(a[5]).pair_add_u64(b[5]).0 as u64;
-    res[6] = tmp_pair.pair_add_u64(a[6]).pair_add_u64(b[6]).0 as u64;
-    res[7] = tmp_pair.pair_add_u64(a[7]).pair_add_u64(b[7]).0 as u64;
+    res[1] = tmp_pair.pair_add_u64(a[1]).pair_add_u64_after(b[1]).0 as u64;
+    res[2] = tmp_pair.pair_add_u64(a[2]).pair_add_u64_after(b[2]).0 as u64;
+    res[3] = tmp_pair.pair_add_u64(a[3]).pair_add_u64_after(b[3]).0 as u64;
+    res[4] = tmp_pair.pair_add_u64(a[4]).pair_add_u64_after(b[4]).0 as u64;
+    res[5] = tmp_pair.pair_add_u64(a[5]).pair_add_u64_after(b[5]).0 as u64;
+    res[6] = tmp_pair.pair_add_u64(a[6]).pair_add_u64_after(b[6]).0 as u64;
+    res[7] = tmp_pair.pair_add_u64(a[7]).pair_add_u64_after(b[7]).0 as u64;
     res[8] = tmp_pair.1 as u64;
 
     res
@@ -354,7 +381,7 @@ pub(crate) fn norop256_mul_u512_u128(a: &[u64; 8], b: &[u64; 4]) -> [u64; 12] {
 }
 
 #[inline]
-fn norop256_sub_u128(a: &[u64; 4], b: &[u64; 4]) -> [u64; 4] {
+pub(crate) fn norop256_sub_u128(a: &[u64; 4], b: &[u64; 4]) -> [u64; 4] {
     let mut res: [u64; 4] = [0; 4];
 
     let (tmp, borrow) = u64_sub(a[0], b[0], false);
@@ -426,4 +453,118 @@ pub(crate) fn norop256_mul_u128_next(a: &[u64; 4], b: &[u64; 4]) -> [u64; 8] {
     res
 }
 
+#[inline]
+#[cfg(target_pointer_width = "32")]
+pub(crate) fn norop256_limbs_add(r: &mut [Limb], a: &[Limb], b: &[Limb], num_size: usize) {
+    let mut u = 0;
+    for i in 0..num_size {
+        let v = DoubleLimb::from(a[i]) + DoubleLimb::from(b[i]) + u;
+        u = v >> LIMB_BITS;
+        r[i] = v as Limb;
+    }
+}
 
+#[inline]
+#[cfg(target_pointer_width = "64")]
+pub(crate) fn norop256_limbs_add(r: &mut [Limb], a: &[Limb], b: &[Limb]) -> bool {
+
+    let (tmp, carry) = u64_add(a[0], b[0], false);
+    r[0] = tmp;
+    let (tmp, carry) = u64_add(a[1], b[1], carry);
+    r[1] = tmp;
+    let (tmp, carry) = u64_add(a[2], b[2], carry);
+    r[2] = tmp;
+    let (tmp, carry) = u64_add(a[3], b[3], carry);
+    r[3] = tmp;
+
+    carry
+}
+
+#[inline]
+#[cfg(target_pointer_width = "64")]
+pub(crate) fn norop256_limbs_add_mod(r: &mut [Limb], a: &[Limb], b: &[Limb], m: &[Limb], _num_size: usize) {
+    let carry = norop256_limbs_add(r, a, b);
+
+    if carry || norop256_limbs_less_than(r, m) == LimbMask::False as Limb {
+        let r_copy: &mut [Limb] = &mut [0; 4];
+        unsafe { core::ptr::copy(r.as_ptr(), r_copy.as_mut_ptr(), 4) };
+        let _borrow = norop256_limbs_sub(r, r_copy, m);
+    }
+}
+
+#[inline]
+#[cfg(target_pointer_width = "64")]
+pub(crate) fn norop256_limbs_sub<'a: 'b, 'b>(r: &mut [Limb], a: &[Limb], b: &[Limb]) -> bool {
+
+    let (tmp, borrow) = u64_sub(a[0], b[0], false);
+    r[0] = tmp;
+    let (tmp, borrow) = u64_sub(a[1], b[1], borrow);
+    r[1] = tmp;
+    let (tmp, borrow) = u64_sub(a[2], b[2], borrow);
+    r[2] = tmp;
+    let (tmp, borrow) = u64_sub(a[3], b[3], borrow);
+    r[3] = tmp;
+
+    borrow
+}
+
+#[inline]
+#[cfg(target_pointer_width = "64")]
+pub(crate) fn norop256_limbs_sub_mod(r: &mut [Limb], a: &[Limb], b: &[Limb], m: &[Limb], _num_size: usize) {
+
+    let borrow = norop256_limbs_sub(r, a, b);
+
+    if borrow {
+        let r_copy: &mut [Limb] = &mut [0; 4];
+        unsafe { core::ptr::copy(r.as_ptr(), r_copy.as_mut_ptr(), 4) };
+        let _borrow = norop256_limbs_sub(r, r_copy, &CURVE_PARAMS.r_p);
+    }
+}
+
+#[inline]
+#[cfg(target_pointer_width = "64")]
+pub(crate) fn norop256_limbs_less_than(a: &[Limb], b: &[Limb]) -> Limb {
+    if a[3] < b[3] {
+        constant_time_is_zero_w(0)
+    } else if a[3] > b[3] {
+        constant_time_is_nonzero_w(0)
+    } else {
+        if a[2] < b[2] {
+            constant_time_is_zero_w(0)
+        } else if a[2] > b[2] {
+            constant_time_is_nonzero_w(0)
+        } else {
+            if a[1] < b[1] {
+                constant_time_is_zero_w(0)
+            } else if a[1] > b[1] {
+                constant_time_is_nonzero_w(0)
+            } else {
+                if a[0] < b[0] {
+                    constant_time_is_zero_w(0)
+                } else if a[0] > b[0] {
+                    constant_time_is_nonzero_w(0)
+                } else {
+                    constant_time_is_nonzero_w(0)
+                }
+            }
+        }
+    }
+}
+
+#[inline]
+#[cfg(target_pointer_width = "64")]
+fn constant_time_is_zero_w(a: Limb) -> Limb {
+    constant_time_msb_w(!a & (Wrapping(a) - Wrapping(1)).0)
+}
+
+#[inline]
+#[cfg(target_pointer_width = "64")]
+fn constant_time_is_nonzero_w(a: Limb) -> Limb {
+    !constant_time_msb_w(!a & (Wrapping(a) - Wrapping(1)).0)
+}
+
+#[inline]
+#[cfg(target_pointer_width = "64")]
+fn constant_time_msb_w(a: Limb) -> Limb {
+    (Wrapping(0) - Wrapping(a >> (std::mem::size_of::<Limb>() * 8 - 1))).0
+}

@@ -16,41 +16,72 @@ use crate::{rand, signature};
 
 mod test {
     use crate::ec::suite_b::ops::{norop256, p256, Elem};
-    use crate::ec::suite_b::ops::sm2p256_norop::mont_pro_sm2p256_next;
+    use crate::ec::suite_b::ops::sm2p256_norop::{mont_pro_sm2p256_next, CURVE_PARAMS};
     use crate::arithmetic::montgomery::R;
+    use crate::ec::suite_b::ops::norop256::{norop256_add_u128, norop256_limbs_add, norop256_limbs_add_mod, norop256_limbs_sub_mod};
+    use crate::limb::Limb;
 
     #[test]
     fn norop256_mul_test() {
         let a = [0x29c4bddf, 0xd89cdf62, 0x78843090, 0xacf005cd, 0xf7212ed6, 0xe5a220ab, 0x04874834,
                 0xdc30061d];
-        let b = norop256::norop256_mul(&a, &a);
-        let (_prefix, shorts, _suffix) = unsafe { b.align_to::<u8>() };
-        println!("{}", hex::encode(shorts));
+        let mut b = norop256::norop256_mul(&a, &a);
+        b.reverse();
+        println!("norop256_mul_test: {:x?}", b);
     }
 
     #[test]
     fn norop256_mul_u128_test() {
         let a = [0xd89cdf6229c4bddf, 0xacf005cd78843090, 0xe5a220abf7212ed6, 0xdc30061d04874834];
-        let b = norop256::norop256_mul_u128(&a, &a);
-        let (_prefix, shorts, _suffix) = unsafe { b.align_to::<u8>() };
-        println!("{}", hex::encode(shorts));
+        let mut b = norop256::norop256_mul_u128(&a, &a);
+        b.reverse();
+        println!("norop256_mul_u128_test: {:x?}", b);
     }
 
     #[test]
     fn norop256_mul_u128_next_test() {
         let a = [0xd89cdf6229c4bddf, 0xacf005cd78843090, 0xe5a220abf7212ed6, 0xdc30061d04874834];
-        let b = norop256::norop256_mul_u128_next(&a, &a);
-        let (_prefix, shorts, _suffix) = unsafe { b.align_to::<u8>() };
-        println!("{}", hex::encode(shorts));
+        let mut b = norop256::norop256_mul_u128_next(&a, &a);
+        b.reverse();
+        println!("norop256_mul_u128_next_test: {:x?}", b);
     }
 
     #[test]
     fn mont_pro_sm2p256_next_test() {
         let a = [0xffffff8a00000051, 0xffffffdc00000054, 0xffffffba00000031, 0xffffffc400000063];
         let b = [0x0000000000000001, 0x00000000ffffffff, 0x0000000000000000, 0x100000000];
-        let r = mont_pro_sm2p256_next(&a, &b);
-        let (_prefix, shorts, _suffix) = unsafe { r.align_to::<u8>() };
-        println!("mont_pro_sm2p256_next_test: {}", hex::encode(shorts));
+        let mut r = mont_pro_sm2p256_next(&a, &b);
+        r.reverse();
+        println!("mont_pro_sm2p256_next_test: {:x?}", r);
+    }
+
+    #[test]
+    fn norop256_add_u128_test() {
+        let a: [u64; 4] = [0x1ffff8950000053b, 0xfffffdc600000543, 0xfffffb8c00000324, 0xfffffc4d0000064e];
+        let b: [u64; 4] = [0x16553623adc0a99a, 0xd3f55c3f46cdfd75, 0x7bdb6926ab664658, 0x52ab139ac09ec830];
+        let mut r = norop256_add_u128(&a, &b);
+        r.reverse();
+        println!("norop256_add_u128_test: {:x?}", r);
+    }
+
+    #[test]
+    fn norop256_limbs_add_mod_test() {
+        let r: &mut [Limb] = &mut [0; 4];
+        let a: &[Limb] = &[0x1ffff8950000053b, 0xfffffdc600000543, 0xfffffb8c00000324, 0xfffffc4d0000064e];
+        let b: &[Limb] = &[0x16553623adc0a99a, 0xd3f55c3f46cdfd75, 0x7bdb6926ab664658, 0x52ab139ac09ec830];
+        norop256_limbs_add_mod(r, a, b, &CURVE_PARAMS.p, r.len());
+        r.reverse();
+        println!("norop256_limbs_add_mod_test: {:x?}", r);
+    }
+
+    #[test]
+    fn norop256_limbs_sub_mod_test() {
+        let r: &mut [Limb] = &mut [0; 4];
+        let a: &[Limb] = &[0x1ffff8950000053b, 0xfffffdc600000543, 0xfffffb8c00000324, 0xcffffc4d0000064e];
+        let b: &[Limb] = &[0x1ffff8950000053b, 0xfffffdc600000543, 0xfffffb8c00000324, 0xdffffc4d0000064e];
+        norop256_limbs_sub_mod(r, a, b, &CURVE_PARAMS.p, r.len());
+        r.reverse();
+        println!("norop256_limbs_sub_mod_test: {:x?}", r);
     }
 
     #[test]
@@ -66,9 +97,10 @@ mod test {
 #[cfg(feature = "internal_benches")]
 mod internal_benches {
     use num_bigint::BigUint;
-    use crate::ec::suite_b::ops::norop256::{norop256_mul, norop256_mul_u128, norop256_mul_u128_next};
-    use crate::ec::suite_b::ops::sm2p256_norop::mont_pro_sm2p256_next;
+    use crate::ec::suite_b::ops::norop256::{norop256_mul, norop256_mul_u128, norop256_mul_u128_next, norop256_add_u128, norop256_sub_u128, norop256_limbs_add, norop256_limbs_add_mod, norop256_limbs_sub_mod};
+    use crate::ec::suite_b::ops::sm2p256_norop::{mont_pro_sm2p256_next, CURVE_PARAMS};
     use crate::{signature, rand};
+    use crate::limb::Limb;
 
     extern crate test;
 
@@ -151,21 +183,101 @@ mod internal_benches {
             let _ = private_key.sign(&rng, &msg).unwrap();
         });
     }
-}
 
-#[test]
-fn sm2p256_signing_test() {
-    let rng = rand::SystemRandom::new();
-    let msg = hex::decode("5905238877c774").unwrap();
+    #[bench]
+    fn norop256_add_u128_bench(bench: &mut test::Bencher) {
+        let a: [u64; 4] = [0xfffff8950000053b, 0xfffffdc600000543, 0xfffffb8c00000324, 0xfffffc4d0000064e];
+        let b: [u64; 4] = [0x16553623adc0a99a, 0xd3f55c3f46cdfd75, 0x7bdb6926ab664658, 0x52ab139ac09ec830];
+        bench.iter(|| {
+            let _ = norop256_add_u128(&a, &b);
+        });
+    }
 
-    let prik = hex::decode("b8aa2a5bd9a9cf448984a247e63cb3878859d02b886e1bc63cd5c6dd46a744ab").unwrap();
-    let pubk = hex::decode("0479fff92a3df175895778dc9dcc825d95e8bb816c356d6c7390332294b3a20189bb24feac1a4a08ff614a4c514b985755948c0a4e49c0042e84078d4a23df6f7e").unwrap();
+    #[bench]
+    fn norop256_sub_u128_bench(bench: &mut test::Bencher) {
+        let a: [u64; 4] = [0xfffff8950000053b, 0xfffffdc600000543, 0xfffffb8c00000324, 0xfffffc4d0000064e];
+        let b: [u64; 4] = [0x16553623adc0a99a, 0xd3f55c3f46cdfd75, 0x7bdb6926ab664658, 0x52ab139ac09ec830];
+        bench.iter(|| {
+            let _ = norop256_sub_u128(&a, &b);
+        });
+    }
+    #[bench]
+    fn norop256_limbs_add_mod_bench(bench: &mut test::Bencher) {
+        let r: &mut [Limb] = &mut [0; 4];
+        let a: &[Limb] = &[0x1ffff8950000053b, 0xfffffdc600000543, 0xfffffb8c00000324, 0xfffffc4d0000064e];
+        let b: &[Limb] = &[0x16553623adc0a99a, 0xd3f55c3f46cdfd75, 0x7bdb6926ab664658, 0x52ab139ac09ec830];
+        bench.iter(|| {
+            norop256_limbs_add_mod(r, a, b, &CURVE_PARAMS.p, r.len());
+        });
+    }
+    #[bench]
+    fn norop256_limbs_sub_mod_bench(bench: &mut test::Bencher) {
+        let r: &mut [Limb] = &mut [0; 4];
+        let a: &[u64] = &[0xfffff8950000053b, 0xfffffdc600000543, 0xfffffb8c00000324, 0xfffffc4d0000064e];
+        let b: &[u64] = &[0x16553623adc0a99a, 0xd3f55c3f46cdfd75, 0x7bdb6926ab664658, 0x52ab139ac09ec830];
+        bench.iter(|| {
+            norop256_limbs_sub_mod(r, a, b, &CURVE_PARAMS.p, r.len());
+        });
+    }
 
-    let signing_alg = &signature::ECDSA_SM2P256_SM3_ASN1_SIGNING;
+    #[bench]
+    fn GFp_nistz256_point_add_bench(bench: &mut test::Bencher) {
+        extern "C" {
+            fn GFp_nistz256_point_add(
+                r: *mut Limb,   // [3][COMMON_OPS.num_limbs]
+                a: *const Limb, // [3][COMMON_OPS.num_limbs]
+                b: *const Limb, // [3][COMMON_OPS.num_limbs]
+            );
+        }
 
-    let private_key =
-        signature::EcdsaKeyPair::from_private_key_and_public_key(signing_alg, &prik, &pubk)
-            .unwrap();
+        let r: &mut [Limb; 12] = &mut [0; 12];
+        let pro_g_2 = ([0x18a9143c79e730d4, 0x5fedb60175ba95fc, 0x7762251079fb732b, 0xa53755c618905f76,
+            0xce95560addf25357, 0xba19e45c8b4ab8e4, 0xdd21f325d2e88688, 0x25885d858571ff18,
+            0x0000000000000001, 0xffffffff00000000, 0xffffffffffffffff, 0xfffffffe]);
+        bench.iter(|| {
+            unsafe {
+                GFp_nistz256_point_add(r.as_mut_ptr(), pro_g_2.as_ptr(), pro_g_2.as_ptr());
+            }
+        });
+    }
 
-    let _ = private_key.sign(&rng, &msg).unwrap();
+    #[bench]
+    fn GFp_nistz256_point_mul_bench(bench: &mut test::Bencher) {
+        extern "C" {
+            fn GFp_nistz256_point_mul(
+                r: *mut Limb,          // [3][COMMON_OPS.num_limbs]
+                p_scalar: *const Limb, // [COMMON_OPS.num_limbs]
+                p_x: *const Limb,      // [COMMON_OPS.num_limbs]
+                p_y: *const Limb,      // [COMMON_OPS.num_limbs]
+            );
+        }
+
+        let r: &mut [Limb; 12] = &mut [0; 12];
+        let scalar: &[Limb] = &[0xfffff8950000053b, 0xfffffdc600000543, 0xfffffb8c00000324, 0xfffffc4d0000064e];
+        let g_2_x: &[Limb] = &[0x0af037bfbc3be46a, 0x83bdc9ba2d8fa938, 0x5349d94b5788cd24, 0x0d7e9c18caa5736a];
+        let g_2_y: &[Limb] = &[0x6a7e1a1d69db9ac1, 0xccbd8d37c4a8e82b, 0xc7b145169b7157ac, 0x947e74656c21bdf5];
+        bench.iter(|| {
+            unsafe {
+                GFp_nistz256_point_mul(r.as_mut_ptr(), scalar.as_ptr(), g_2_x.as_ptr(), g_2_y.as_ptr());
+            }
+        });
+    }
+
+    #[bench]
+    fn GFp_nistz256_point_mul_base_bench(bench: &mut test::Bencher) {
+        extern "C" {
+            fn GFp_nistz256_point_mul_base(
+                r: *mut Limb,          // [3][COMMON_OPS.num_limbs]
+                g_scalar: *const Limb, // [COMMON_OPS.num_limbs]
+            );
+        }
+
+        let r: &mut [Limb; 12] = &mut [0; 12];
+        let scalar: &[Limb] = &[0xfffff8950000053b, 0xfffffdc600000543, 0xfffffb8c00000324, 0xfffffc4d0000064e];
+        bench.iter(|| {
+            unsafe {
+                GFp_nistz256_point_mul_base(r.as_mut_ptr(), scalar.as_ptr());
+            }
+        });
+    }
 }
