@@ -30,6 +30,8 @@ use crate::{
 use untrusted;
 use core::marker::PhantomData;
 use libsm::sm2;
+use crate::ec::suite_b::ecdsa::verification::EcdsaVerificationAlgorithm;
+use crate::limb::parse_big_endian_and_pad_consttime;
 
 /// An ECDSA signing algorithm.
 pub struct EcdsaSigningAlgorithm {
@@ -161,21 +163,6 @@ impl EcdsaKeyPair {
         let (seed, public_key) = key_pair.split();
         let d = private_key::private_key_as_scalar(alg.private_key_ops, &seed);
 
-        // if alg.id == AlgorithmID::ECDSA_SM2P256_SM3_ASN1_SIGNING {
-        //     let nonce_key = NonceRandomKey::new(alg, seed, rng)?;
-        //     let d: Scalar<R> = Scalar {
-        //         limbs: d.limbs,
-        //         m: PhantomData,
-        //         encoding: PhantomData,
-        //     };
-        //     return Ok(Self {
-        //         d,
-        //         nonce_key,
-        //         alg,
-        //         public_key: PublicKey(public_key),
-        //     });
-        // }
-
         let d = alg
             .private_scalar_ops
             .scalar_ops
@@ -197,20 +184,6 @@ impl EcdsaKeyPair {
         rng: &dyn rand::SecureRandom,
         message: &[u8],
     ) -> Result<signature::Signature, error::Unspecified> {
-        // if self.alg.id == AlgorithmID::ECDSA_SM2P256_SM3_ASN1_SIGNING {
-        //     let ctx = sm2::signature::SigCtx::new();
-        //     let sk = self.d.to_big_uint(self.alg.private_key_ops.common.num_limbs);
-        //     let raw_sig = ctx.sign(message, &sk, &ctx.pk_from_sk(&sk));
-        //     let mut der_sig = raw_sig.der_encode();
-        //     return Ok(signature::Signature::new(move |value| {
-        //         let orn = der_sig.len();
-        //         while der_sig.len() < value.len() {
-        //             der_sig.push(0);
-        //         }
-        //         value.copy_from_slice(&der_sig);
-        //         orn
-        //     }));
-        // }
         // Step 4 (out of order).
         let h = digest::digest(self.alg.digest_alg, message);
 
@@ -315,6 +288,89 @@ impl EcdsaKeyPair {
         }
 
         Err(error::Unspecified)
+    }
+
+    /// todo
+    pub fn private_key(&self) -> [u8; 48] {
+        let mut out = [0; 48];
+        let one_scalar: Scalar<R> = Scalar {
+            limbs: [1, 0, 0, 0, 0, 0],
+            m: PhantomData,
+            encoding: PhantomData
+        };
+        let d = self.alg
+            .private_scalar_ops
+            .scalar_ops
+            .scalar_product(&self.d, &one_scalar);
+        limb::big_endian_from_limbs(&d.limbs, &mut out);
+        out
+    }
+
+    /// todo
+    pub fn public_key(&self) -> &[u8] {
+        self.public_key.as_ref()
+    }
+
+    /// todo
+    pub fn generate_keypair(
+        alg: &'static EcdsaSigningAlgorithm
+    ) -> Result<Self, error::KeyRejected> {
+        let rng = rand::SystemRandom::new();
+        let seed = ec::Seed::generate(alg.curve, &rng, cpu::features()).map_err(|error::Unspecified| error::KeyRejected::seed_error())?;
+        let key_pair = ec::KeyPair::derive(seed).map_err(|error::Unspecified| error::KeyRejected::keypair_error())?;
+        let rng = rand::SystemRandom::new(); // TODO: make this a parameter.
+        Self::new(alg, key_pair, &rng)
+    }
+
+    /// todo
+    pub fn from_privatekey_bytes(
+        alg: &'static EcdsaSigningAlgorithm,
+        bytes: untrusted::Input,
+    ) -> Result<Self, error::KeyRejected> {
+        let seed = ec::Seed::from_bytes(alg.curve, bytes, cpu::features()).map_err(|error::Unspecified| error::KeyRejected::seed_error())?;
+        let key_pair = ec::KeyPair::derive(seed).map_err(|error::Unspecified| error::KeyRejected::keypair_error())?;
+        let rng = rand::SystemRandom::new(); // TODO: make this a parameter.
+        Self::new(alg, key_pair, &rng)
+    }
+
+    /// todo
+    pub fn split_rs<'a>(
+        &self,
+        alg: &'static EcdsaVerificationAlgorithm,
+        signature: &untrusted::Input<'a>,
+    ) -> Result<(untrusted::Input<'a>, untrusted::Input<'a>), error::Unspecified> {
+        signature.read_all(error::Unspecified, |input| {
+            (alg.split_rs)(self.alg.private_scalar_ops.scalar_ops, input)
+        })
+    }
+
+    /// todo
+    pub fn format_rs<'a>(
+        alg: &'static EcdsaSigningAlgorithm,
+        r: &'a [u8],
+        s: &'a [u8],
+    ) -> Result<signature::Signature, error::Unspecified> {
+        let r_inp = untrusted::Input::from(&r);
+        let mut r_limbs = [0; MAX_LIMBS];
+        parse_big_endian_and_pad_consttime(r_inp, &mut r_limbs)?;
+        let r: Scalar<Unencoded> = Scalar {
+            limbs: r_limbs,
+            m: PhantomData,
+            encoding: PhantomData
+        };
+
+        let s_inp = untrusted::Input::from(&s);
+        let mut s_limbs = [0; MAX_LIMBS];
+        parse_big_endian_and_pad_consttime(s_inp, &mut s_limbs)?;
+        let s: Scalar<Unencoded> = Scalar {
+            limbs: s_limbs,
+            m: PhantomData,
+            encoding: PhantomData
+        };
+
+        Ok(signature::Signature::new(|sig_bytes| {
+            (alg.format_rs)(alg.private_scalar_ops.scalar_ops, &r, &s, sig_bytes)
+        }))
     }
 }
 

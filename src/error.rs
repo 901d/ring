@@ -202,6 +202,14 @@ impl KeyRejected {
     pub(crate) fn unexpected_error() -> Self {
         KeyRejected("UnexpectedError")
     }
+
+    pub(crate) fn seed_error() -> Self {
+        KeyRejected("SeedOperationFailed")
+    }
+
+    pub(crate) fn keypair_error() -> Self {
+        KeyRejected("KeyPairOperationFailed")
+    }
 }
 
 #[cfg(feature = "std")]

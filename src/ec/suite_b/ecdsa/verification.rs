@@ -30,7 +30,8 @@ use libsm::sm2;
 pub struct EcdsaVerificationAlgorithm {
     ops: &'static PublicScalarOps,
     digest_alg: &'static digest::Algorithm,
-    split_rs:
+    /// todo
+    pub split_rs:
         for<'a> fn(
             ops: &'static ScalarOps,
             input: &mut untrusted::Reader<'a>,
@@ -59,23 +60,6 @@ impl signature::VerificationAlgorithm for EcdsaVerificationAlgorithm {
         msg: untrusted::Input,
         signature: untrusted::Input,
     ) -> Result<(), error::Unspecified> {
-        if self.id == AlgorithmID::ECDSA_SM2P256_SM3_ASN1 {
-            // sm2 verify
-            let pk_bz = public_key.as_slice_less_safe();
-            let msg_bz = msg.as_slice_less_safe();
-            let sig_bz = signature.as_slice_less_safe();
-
-            let ctx = sm2::signature::SigCtx::new();
-            let curve = sm2::ecc::EccCtx::new();
-
-            let pk = curve.bytes_to_point(&pk_bz).unwrap();
-            let sig = sm2::signature::Signature::der_decode(&sig_bz).unwrap();
-
-            if ctx.verify(msg_bz, &pk, &sig) {
-                return Ok(())
-            }
-            return Err(error::Unspecified);
-        }
         let e = {
             // NSA Guide Step 2: "Use the selected hash function to compute H =
             // Hash(M)."
