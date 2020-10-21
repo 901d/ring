@@ -11,10 +11,10 @@
 // WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+#![allow(dead_code)]
 
 use crate::limb::{Limb, DoubleLimb, LIMB_BITS, LimbMask};
 use std::num::Wrapping;
-use num_traits::WrappingSub;
 use crate::ec::suite_b::ops::sm2p256_norop::CURVE_PARAMS;
 
 struct u64pair(u64, u64);
@@ -224,7 +224,7 @@ fn u64_sub(a: Limb, b: Limb, borrow: bool) -> (Limb, bool) {
 #[inline]
 #[cfg(target_pointer_width = "64")]
 fn u64_add(a: Limb, b: Limb, carry: bool) -> (Limb, bool) {
-    let mut v = DoubleLimb::from(a) + DoubleLimb::from(b) + DoubleLimb::from(carry);
+    let v = DoubleLimb::from(a) + DoubleLimb::from(b) + DoubleLimb::from(carry);
     let u = v >> LIMB_BITS;
     (v as Limb, u != 0)
 }
@@ -510,7 +510,7 @@ pub(crate) fn norop256_limbs_sub<'a: 'b, 'b>(r: &mut [Limb], a: &[Limb], b: &[Li
 
 #[inline]
 #[cfg(target_pointer_width = "64")]
-pub(crate) fn norop256_limbs_sub_mod(r: &mut [Limb], a: &[Limb], b: &[Limb], m: &[Limb], _num_size: usize) {
+pub(crate) fn norop256_limbs_sub_mod(r: &mut [Limb], a: &[Limb], b: &[Limb], _m: &[Limb], _num_size: usize) {
 
     let borrow = norop256_limbs_sub(r, a, b);
 

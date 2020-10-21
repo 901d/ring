@@ -15,7 +15,7 @@
 use crate::ec::suite_b::ops::norop256::{norop256_mul_u128, norop256_mul_u512_u128, norop256_add_u512_u128, norop256_limbs_sub_mod, norop256_limbs_add_mod};
 use crate::limb::{Limb, LimbMask};
 use crate::c;
-use crate::arithmetic::bigint::{limbs_mont_mul, N0};
+use crate::arithmetic::bigint::N0;
 use std::slice;
 use crate::ec::suite_b::ops::sm2p256_table::SM2P256_PRECOMPUTED;
 
@@ -379,7 +379,7 @@ fn norop_point_mul_sm2p256(
     let scalar_bz = unsafe { slice::from_raw_parts(scalar_ptr, 32) };
 
     let lam: [Limb; 4] = [0, 0, 0, 0];
-    let mut a_order: [*mut Limb; 3] = [lam.clone().as_mut_ptr(), lam.clone().as_mut_ptr(), lam.clone().as_mut_ptr()];
+    let a_order: [*mut Limb; 3] = [lam.clone().as_mut_ptr(), lam.clone().as_mut_ptr(), lam.clone().as_mut_ptr()];
     unsafe {
         core::ptr::copy(a[0], a_order[0], 4);
         core::ptr::copy(a[1], a_order[1], 4);
@@ -497,6 +497,7 @@ fn norop_scalar_mul_rep_sm2p256(
     }
 }
 
+#[allow(dead_code)]
 fn norop_scalar_to_mont_sm2p256(
     r: *mut Limb,   // [COMMON_OPS.num_limbs]
     a: *const Limb, // [COMMON_OPS.num_limbs]
@@ -606,7 +607,7 @@ mod sm2p256_norop_test {
         norop_to_mont_sm2p256(mont_ori_point_g_y.as_mut_ptr(), ori_point_g_y.as_ptr());
         let projective_mont_point_g = norop_to_jacobi_sm2p256([mont_ori_point_g_x.as_ptr(), mont_ori_point_g_y.as_ptr()]);
         let lam: [Limb; 4] = [0, 0, 0, 0];
-        let mut double_projective_mont_point_g: [*mut Limb; 3] = [lam.clone().as_mut_ptr(), lam.clone().as_mut_ptr(), lam.clone().as_mut_ptr()];
+        let double_projective_mont_point_g: [*mut Limb; 3] = [lam.clone().as_mut_ptr(), lam.clone().as_mut_ptr(), lam.clone().as_mut_ptr()];
         norop_point_double_sm2p256(double_projective_mont_point_g, projective_mont_point_g);
         unsafe {
             let r_x: &mut [Limb] = &mut [0, 0, 0, 0];
@@ -628,7 +629,7 @@ mod sm2p256_norop_test {
         let pro_g_2 = norop_to_jacobi_sm2p256([g_2_x.as_ptr(), g_2_y.as_ptr()]);
         let pro_g_4 = norop_to_jacobi_sm2p256([g_4_x.as_ptr(), g_4_y.as_ptr()]);
         let lam: [Limb; 4] = [0, 0, 0, 0];
-        let mut pro_g_6: [*mut Limb; 3] = [lam.clone().as_mut_ptr(), lam.clone().as_mut_ptr(), lam.clone().as_mut_ptr()];
+        let pro_g_6: [*mut Limb; 3] = [lam.clone().as_mut_ptr(), lam.clone().as_mut_ptr(), lam.clone().as_mut_ptr()];
         norop_point_add_sm2p256(pro_g_6, pro_g_2, pro_g_4);
         unsafe {
             let r_x: &mut [Limb] = &mut [0, 0, 0, 0];

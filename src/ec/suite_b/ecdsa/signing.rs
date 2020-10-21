@@ -29,7 +29,6 @@ use crate::{
 };
 use untrusted;
 use core::marker::PhantomData;
-use libsm::sm2;
 use crate::ec::suite_b::ecdsa::verification::EcdsaVerificationAlgorithm;
 use crate::limb::parse_big_endian_and_pad_consttime;
 

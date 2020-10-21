@@ -12,13 +12,11 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-use crate::{rand, signature};
-
 mod test {
     use crate::ec::suite_b::ops::{norop256, p256, Elem};
     use crate::ec::suite_b::ops::sm2p256_norop::{mont_pro_sm2p256_next, CURVE_PARAMS};
     use crate::arithmetic::montgomery::R;
-    use crate::ec::suite_b::ops::norop256::{norop256_add_u128, norop256_limbs_add, norop256_limbs_add_mod, norop256_limbs_sub_mod};
+    use crate::ec::suite_b::ops::norop256::{norop256_add_u128, norop256_limbs_add_mod, norop256_limbs_sub_mod};
     use crate::limb::Limb;
 
     #[test]
@@ -97,7 +95,7 @@ mod test {
 #[cfg(feature = "internal_benches")]
 mod internal_benches {
     use num_bigint::BigUint;
-    use crate::ec::suite_b::ops::norop256::{norop256_mul, norop256_mul_u128, norop256_mul_u128_next, norop256_add_u128, norop256_sub_u128, norop256_limbs_add, norop256_limbs_add_mod, norop256_limbs_sub_mod};
+    use crate::ec::suite_b::ops::norop256::{norop256_mul, norop256_mul_u128, norop256_mul_u128_next, norop256_add_u128, norop256_sub_u128, norop256_limbs_add_mod, norop256_limbs_sub_mod};
     use crate::ec::suite_b::ops::sm2p256_norop::{mont_pro_sm2p256_next, CURVE_PARAMS};
     use crate::{signature, rand};
     use crate::limb::Limb;

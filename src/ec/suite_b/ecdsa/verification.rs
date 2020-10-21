@@ -24,7 +24,6 @@ use crate::{
     limb, sealed, signature,
 };
 use untrusted;
-use libsm::sm2;
 
 /// An ECDSA verification algorithm.
 pub struct EcdsaVerificationAlgorithm {
