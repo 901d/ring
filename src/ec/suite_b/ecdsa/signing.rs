@@ -250,13 +250,12 @@ impl EcdsaKeyPair {
             // XXX: iteration conut?
             // Step 1.
             let k = private_key::random_scalar(self.alg.private_key_ops, rng)?;
-            let k_inv = scalar_ops.scalar_inv_to_mont(&k);
 
             // Step 2.
             let r = private_key_ops.point_mul_base(&k);
 
             // Step 3.
-            let r = {
+            let mut r = {
                 let (x, _) = private_key::affine_from_jacobian(private_key_ops, &r)?;
                 let x = cops.elem_unencoded(&x);
                 elem_reduced_to_scalar(cops, &x)
@@ -270,14 +269,43 @@ impl EcdsaKeyPair {
             // Step 5.
             let e = digest_scalar(scalar_ops, h);
 
+            let mut s = Scalar::zero();
+
             // Step 6.
-            let s = {
-                let dr = scalar_ops.scalar_product(&self.d, &r);
-                let e_plus_dr = scalar_sum(cops, &e, &dr);
-                scalar_ops.scalar_product(&k_inv, &e_plus_dr)
-            };
-            if cops.is_zero(&s) {
-                continue;
+            if self.alg.id == AlgorithmID::ECDSA_SM2P256_SM3_ASN1_SIGNING {
+
+                static SCALAR_ONE: Scalar<Unencoded> = Scalar {
+                    limbs: limbs![1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    m: PhantomData,
+                    encoding: PhantomData,
+                };
+
+                r = scalar_sum(cops, &r, &e);
+
+                s = {
+                    let da_ue = scalar_ops.scalar_unencoded(&self.d);
+                    let left = scalar_ops.scalar_inv_to_mont(&scalar_sum(cops, &da_ue, &SCALAR_ONE));
+
+                    let dr = scalar_ops.scalar_product(&self.d, &r);
+                    let right = scalar_sub(cops, &k, &dr);
+
+                    scalar_ops.scalar_product(&left, &right)
+                };
+                if cops.is_zero(&s) {
+                    continue;
+                }
+
+            } else {
+                let k_inv = scalar_ops.scalar_inv_to_mont(&k);
+
+                s = {
+                    let dr = scalar_ops.scalar_product(&self.d, &r);
+                    let e_plus_dr = scalar_sum(cops, &e, &dr);
+                    scalar_ops.scalar_product(&k_inv, &e_plus_dr)
+                };
+                if cops.is_zero(&s) {
+                    continue;
+                }
             }
 
             // Step 7 with encoding.

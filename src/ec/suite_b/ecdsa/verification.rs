@@ -111,17 +111,27 @@ impl EcdsaVerificationAlgorithm {
 
         // NSA Guide Step 1: "If r and s are not both integers in the interval
         // [1, n − 1], output INVALID."
-        let r = scalar_parse_big_endian_variable(public_key_ops.common, limb::AllowZero::No, r)?;
+        let mut r = scalar_parse_big_endian_variable(public_key_ops.common, limb::AllowZero::No, r)?;
         let s = scalar_parse_big_endian_variable(public_key_ops.common, limb::AllowZero::No, s)?;
 
-        // NSA Guide Step 4: "Compute w = s**−1 mod n, using the routine in
-        // Appendix B.1."
-        let w = scalar_ops.scalar_inv_to_mont(&s);
+        let mut u1 = Scalar::zero();
+        let mut u2 = Scalar::zero();
 
-        // NSA Guide Step 5: "Compute u1 = (e * w) mod n, and compute
-        // u2 = (r * w) mod n."
-        let u1 = scalar_ops.scalar_product(&e, &w);
-        let u2 = scalar_ops.scalar_product(&r, &w);
+        if self.id == AlgorithmID::ECDSA_SM2P256_SM3_ASN1 {
+            u1 = s;
+
+            u2 = scalar_sum(scalar_ops.common, &r, &s);
+            r= scalar_sub(scalar_ops.common, &r, &e);
+        } else {
+            // NSA Guide Step 4: "Compute w = s**−1 mod n, using the routine in
+            // Appendix B.1."
+            let w = scalar_ops.scalar_inv_to_mont(&s);
+
+            // NSA Guide Step 5: "Compute u1 = (e * w) mod n, and compute
+            // u2 = (r * w) mod n."
+            u1 = scalar_ops.scalar_product(&e, &w);
+            u2 = scalar_ops.scalar_product(&r, &w);
+        }
 
         // NSA Guide Step 6: "Compute the elliptic curve point
         // R = (xR, yR) = u1*G + u2*Q, using EC scalar multiplication and EC

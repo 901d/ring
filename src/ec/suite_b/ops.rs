@@ -57,6 +57,12 @@ static ONE: Elem<Unencoded> = Elem {
     encoding: PhantomData,
 };
 
+static SCALAR_ONE: Scalar<Unencoded> = Scalar {
+    limbs: limbs![1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+    m: PhantomData,
+    encoding: PhantomData,
+};
+
 /// Operations and values needed by all curve operations.
 pub struct CommonOps {
     pub num_limbs: usize,
@@ -264,6 +270,11 @@ impl ScalarOps {
     {
         mul_mont(self.scalar_mul_mont, a, b)
     }
+
+    #[inline]
+    pub fn scalar_unencoded(&self, a: &Scalar<R>) -> Scalar<Unencoded> {
+        self.scalar_product(a, &SCALAR_ONE)
+    }
 }
 
 /// Operations on public scalars needed by ECDSA signature verification.
@@ -331,6 +342,20 @@ pub fn scalar_sum(ops: &CommonOps, a: &Scalar, b: &Scalar) -> Scalar {
     let mut r = Scalar::zero();
     unsafe {
         LIMBS_add_mod(
+            r.limbs.as_mut_ptr(),
+            a.limbs.as_ptr(),
+            b.limbs.as_ptr(),
+            ops.n.limbs.as_ptr(),
+            ops.num_limbs,
+        )
+    }
+    r
+}
+
+pub fn scalar_sub(ops: &CommonOps, a: &Scalar, b: &Scalar) -> Scalar {
+    let mut r = Scalar::zero();
+    unsafe {
+        LIMBS_sub_mod(
             r.limbs.as_mut_ptr(),
             a.limbs.as_ptr(),
             b.limbs.as_ptr(),
@@ -428,6 +453,14 @@ fn parse_big_endian_fixed_consttime<M>(
 
 extern "C" {
     fn LIMBS_add_mod(
+        r: *mut Limb,
+        a: *const Limb,
+        b: *const Limb,
+        m: *const Limb,
+        num_limbs: c::size_t,
+    );
+
+    fn LIMBS_sub_mod(
         r: *mut Limb,
         a: *const Limb,
         b: *const Limb,
