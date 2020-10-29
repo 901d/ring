@@ -62,7 +62,16 @@ impl signature::VerificationAlgorithm for EcdsaVerificationAlgorithm {
         let e = {
             // NSA Guide Step 2: "Use the selected hash function to compute H =
             // Hash(M)."
-            let h = digest::digest(self.digest_alg, msg.as_slice_less_safe());
+            let h = {
+                if self.id == AlgorithmID::ECDSA_SM2P256_SM3_ASN1 {
+                    let ctx = libsm::sm2::signature::SigCtx::new();
+                    let pk_point = ctx.load_pubkey(public_key.as_slice_less_safe()).map_err(|_| error::Unspecified)?;
+                    let message = ctx.recid_combine("1234567812345678", &pk_point, msg.as_slice_less_safe());
+                    digest::digest(self.digest_alg, &message)
+                } else {
+                    digest::digest(self.digest_alg, msg.as_slice_less_safe())
+                }
+            };
 
             // NSA Guide Step 3: "Convert the bit string H to an integer e as
             // described in Appendix B.2."

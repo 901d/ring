@@ -184,7 +184,17 @@ impl EcdsaKeyPair {
         message: &[u8],
     ) -> Result<signature::Signature, error::Unspecified> {
         // Step 4 (out of order).
-        let h = digest::digest(self.alg.digest_alg, message);
+
+        let h = {
+            if self.alg.id == AlgorithmID::ECDSA_SM2P256_SM3_ASN1_SIGNING {
+                let ctx = libsm::sm2::signature::SigCtx::new();
+                let pk_point = ctx.load_pubkey(self.public_key()).map_err(|_| error::Unspecified)?;
+                let message = ctx.recid_combine("1234567812345678", &pk_point, message);
+                digest::digest(self.alg.digest_alg, &message)
+            } else {
+                digest::digest(self.alg.digest_alg, message)
+            }
+        };
 
         // Incorporate `h` into the nonce to hedge against faulty RNGs. (This
         // is not an approved random number generator that is mandated in
@@ -652,7 +662,10 @@ static EC_PUBLIC_KEY_SM2P256_PKCS8_V1_TEMPLATE: pkcs8::Template = pkcs8::Templat
 
 #[cfg(test)]
 mod tests {
-    use crate::{signature, test};
+    use crate::{signature, test, pkcs8};
+    use crate::ec::suite_b::ecdsa::signing::EcdsaKeyPair;
+    use std::fs;
+    use std::io::Write;
 
     #[test]
     fn signature_ecdsa_sign_fixed_test() {
@@ -731,5 +744,22 @@ mod tests {
                 Ok(())
             },
         );
+    }
+
+    #[test]
+    fn ecdsa_generate_pkcs8_from_pem_test() {
+        let pk_file: &[u8] = include_bytes!("/home/ypf/ypf-app/test/cita/bsn-cert/priKey.pk8");
+        let alg = &&signature::ECDSA_SM2P256_SM3_ASN1_SIGNING;
+        let key_pair = EcdsaKeyPair::from_pkcs8(alg, pk_file).unwrap();
+        let pkcs8 = pkcs8::wrap_key(
+            &alg.pkcs8_template,
+            &key_pair.private_key(),
+            &key_pair.public_key(),
+        );
+
+        println!("{}", hex::encode(pkcs8.as_ref()));
+
+        let mut to_file = fs::File::create("/home/ypf/ypf-app/test/cita/bsn-cert/cert.pk8").unwrap();
+        let _ = to_file.write(pkcs8.as_ref()).unwrap();
     }
 }
