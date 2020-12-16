@@ -12,12 +12,13 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-use crate::ec::suite_b::ops::norop256::{norop256_mul_u128, norop256_mul_u512_u128, norop256_add_u512_u128, norop256_limbs_sub_mod, norop256_limbs_add_mod};
-use crate::limb::{Limb, LimbMask};
+use crate::ec::suite_b::ops::norop256::{norop256_limbs_sub_mod, norop256_limbs_add_mod};
+use crate::limb::{Limb, LimbMask, LIMB_FALSE, LIMB_LENGTH};
 use crate::c;
 use crate::arithmetic::bigint::N0;
 use std::slice;
 use crate::ec::suite_b::ops::sm2p256_table::SM2P256_PRECOMPUTED;
+use crate::ec::suite_b::ops::norop_pure::{norop_mul_pure, norop_add_pure, norop_limbs_less_than, norop_sub_pure, norop_mul_pure_upper};
 
 extern "C" {
     fn LIMBS_shl_mod(r: *mut Limb, a: *const Limb, m: *const Limb, num_limbs: c::size_t);
@@ -506,19 +507,24 @@ fn norop_scalar_to_mont_sm2p256(
 }
 
 pub(crate) fn mont_pro_sm2p256_next(
-    a: &[u64; 4],
-    b: &[u64; 4],
-) -> [u64; 4] {
-    let t = norop256_mul_u128(a, b);
-    let mut m = [0; 4];
-    unsafe {
-        core::ptr::copy(norop256_mul_u512_u128(&t, &CURVE_PARAMS.p_inv_r_neg)[8..].as_ptr(), m.as_mut_ptr(), 4);
+    a: &[Limb; LIMB_LENGTH],
+    b: &[Limb; LIMB_LENGTH],
+) -> [Limb; LIMB_LENGTH] {
+    let mut r = [0; LIMB_LENGTH];
+    let mut t = [0; LIMB_LENGTH * 2];
+    norop_mul_pure(&mut t, a, b);
+    norop_mul_pure_upper(&mut r, &t[0..LIMB_LENGTH], &CURVE_PARAMS.p_inv_r_neg, 4);
+    let mut lam2 = [0; LIMB_LENGTH * 2];
+    norop_mul_pure(&mut lam2, &r, &CURVE_PARAMS.p);
+    let mut lam3 = [0; LIMB_LENGTH * 2];
+    let carry = norop_add_pure(&mut lam3, &t, &lam2);
+
+    if carry || norop_limbs_less_than(&lam3[LIMB_LENGTH..], &CURVE_PARAMS.p) == LIMB_FALSE {
+        let _ = norop_sub_pure(&mut r, &lam3[LIMB_LENGTH..], &CURVE_PARAMS.p);
+        return r;
     }
-    let m_mul_p = norop256_mul_u128(&m, &CURVE_PARAMS.p);
-    let mut r =  [0; 4];
-    unsafe {
-        core::ptr::copy(norop256_add_u512_u128(&t, &m_mul_p)[4..8].as_ptr(), r.as_mut_ptr(), 4);
-    }
+
+    r.copy_from_slice(&mut lam3[LIMB_LENGTH..]);
     r
 }
 
@@ -708,11 +714,35 @@ mod sm2p256_norop_test {
 #[cfg(feature = "internal_benches")]
 mod bigint_benches {
     use crate::limb::Limb;
-    use crate::ec::suite_b::ops::sm2p256_norop::{CURVE_PARAMS, sub_sm2p256, add_sm2p256, norop_point_mul_sm2p256, norop_to_jacobi_sm2p256, norop_point_add_sm2p256, norop_point_double_sm2p256};
+    use crate::ec::suite_b::ops::sm2p256_norop::*;
     use crate::arithmetic::bigint::N0;
     use crate::c;
+    use crate::ec::suite_b::ops::sm2p256_norop_pure::mont_pro_sm2p256_pure;
 
     extern crate test;
+
+    #[bench]
+    fn GFp_nistz256_mul_mont_bench(bench: &mut test::Bencher) {
+        extern "C" {
+            fn GFp_nistz256_mul_mont(
+                r: *mut Limb,   // [COMMON_OPS.num_limbs]
+                a: *const Limb, // [COMMON_OPS.num_limbs]
+                b: *const Limb, // [COMMON_OPS.num_limbs]
+            );
+        }
+        let mut r: [Limb; 4] = [0, 0, 0, 0];
+        let a: &[Limb] = &[0xfffff8950000053b, 0xfffffdc600000543, 0xfffffb8c00000324, 0xfffffc4d0000064e];
+        bench.iter(||
+            {
+                unsafe {
+                    GFp_nistz256_mul_mont(
+                        r.as_mut_ptr(),
+                        a.as_ptr(),
+                        a.as_ptr(),
+                    )
+                }
+            });
+    }
 
     #[bench]
     fn GFp_bn_mul_mont_bench(bench: &mut test::Bencher) {
@@ -745,6 +775,24 @@ mod bigint_benches {
     }
 
     #[bench]
+    fn mont_pro_sm2p256_next_bench(bench: &mut test::Bencher) {
+        let a = [0xffffff8a00000051, 0xffffffdc00000054, 0xffffffba00000031, 0xffffffc400000063];
+        // let b = [0x0000000000000001, 0x00000000ffffffff, 0x0000000000000000, 0x100000000];
+        bench.iter(|| {
+            let _ = mont_pro_sm2p256_next(&a, &a);
+        });
+    }
+
+    #[bench]
+    fn mont_pro_sm2p256_pure_bench(bench: &mut test::Bencher) {
+        let a: &[Limb; 4] = &[0xfffff8950000053b, 0xfffffdc600000543, 0xfffffb8c00000324, 0xfffffc4d0000064e];
+        bench.iter(||
+            {
+                let _ = mont_pro_sm2p256_pure(a, a);
+            });
+    }
+
+    #[bench]
     fn sub_sm2p256_bench(bench: &mut test::Bencher) {
         let mut r: [Limb; 4] = [0, 0, 0, 0];
         let a: &[Limb] = &[0x0af037bfbc3be46a, 0x83bdc9ba2d8fa938, 0x5349d94b5788cd24, 0x0d7e9c18caa5736a];
@@ -758,8 +806,8 @@ mod bigint_benches {
     #[bench]
     fn add_sm2p256_bench(bench: &mut test::Bencher) {
         let mut r: [Limb; 4] = [0, 0, 0, 0];
-        let a: &[Limb] = &[0x1af037bfbc3be46a, 0x13bdc9ba2d8fa938, 0x1349d94b5788cd24, 0x0d7e9c18caa5736a];
-        let b: &[Limb] = &[0x6a7e1a1d69db9ac1, 0xccbd8d37c4a8e82b, 0xc7b145169b7157ac, 0x947e74656c21bdf5];
+        let a = [0xfffff8950000053b, 0xfffffdc600000543, 0xfffffb8c00000324, 0xfffffc4d0000064e];
+        let b = [0x16553623adc0a99a, 0xd3f55c3f46cdfd75, 0x7bdb6926ab664658, 0x52ab139ac09ec830];
         bench.iter(|| {
             add_sm2p256(r.as_mut_ptr(), a.as_ptr(), b.as_ptr());
         })

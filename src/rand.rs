@@ -361,7 +361,6 @@ mod urandom {
 
     #[cfg_attr(any(target_os = "android", target_os = "linux"), cold, inline(never))]
     pub fn fill(dest: &mut [u8]) -> Result<(), error::Unspecified> {
-        extern crate std;
 
         use once_cell::sync::Lazy;
 

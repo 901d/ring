@@ -46,11 +46,15 @@ mod test {
 
     #[test]
     fn mont_pro_sm2p256_next_test() {
-        let a = [0xffffff8a00000051, 0xffffffdc00000054, 0xffffffba00000031, 0xffffffc400000063];
+        let a = [0xfffff8950000053b, 0xfffffdc600000543, 0xfffffb8c00000324, 0xfffffc4d0000064e];
         let b = [0x0000000000000001, 0x00000000ffffffff, 0x0000000000000000, 0x100000000];
+        let mut r = mont_pro_sm2p256_next(&a, &a);
+        r.reverse();
+        println!("mont_pro_sm2p256_next_test 1: {:x?}", r);
+
         let mut r = mont_pro_sm2p256_next(&a, &b);
         r.reverse();
-        println!("mont_pro_sm2p256_next_test: {:x?}", r);
+        println!("mont_pro_sm2p256_next_test 2: {:x?}", r);
     }
 
     #[test]
@@ -229,9 +233,9 @@ mod internal_benches {
         }
 
         let r: &mut [Limb; 12] = &mut [0; 12];
-        let pro_g_2 = ([0x18a9143c79e730d4, 0x5fedb60175ba95fc, 0x7762251079fb732b, 0xa53755c618905f76,
+        let pro_g_2 = [0x18a9143c79e730d4, 0x5fedb60175ba95fc, 0x7762251079fb732b, 0xa53755c618905f76,
             0xce95560addf25357, 0xba19e45c8b4ab8e4, 0xdd21f325d2e88688, 0x25885d858571ff18,
-            0x0000000000000001, 0xffffffff00000000, 0xffffffffffffffff, 0xfffffffe]);
+            0x0000000000000001, 0xffffffff00000000, 0xffffffffffffffff, 0xfffffffe];
         bench.iter(|| {
             unsafe {
                 GFp_nistz256_point_add(r.as_mut_ptr(), pro_g_2.as_ptr(), pro_g_2.as_ptr());

@@ -35,11 +35,25 @@ pub type Limb = u32;
 #[cfg(target_pointer_width = "64")]
 pub const LIMB_BITS: usize = 64;
 #[cfg(target_pointer_width = "32")]
+pub const LIMB_FULL: Limb = 0xffff_ffff;
+#[cfg(target_pointer_width = "64")]
+pub const LIMB_FULL: Limb = 0xffff_ffff_ffff_ffff;
+#[cfg(target_pointer_width = "32")]
 pub const LIMB_BITS: usize = 32;
 #[cfg(target_pointer_width = "64")]
 pub type DoubleLimb = u128;
 #[cfg(target_pointer_width = "32")]
 pub type DoubleLimb = u64;
+#[cfg(target_pointer_width = "64")]
+pub const LIMB_LENGTH: usize = 4;
+#[cfg(target_pointer_width = "32")]
+pub const LIMB_LENGTH: usize = 8;
+#[cfg(target_pointer_width = "64")]
+pub const LIMB_TRUE: Limb = 0xffff_ffff_ffff_ffff;
+#[cfg(target_pointer_width = "32")]
+pub const LIMB_TRUE: Limb = 0xffff_ffff;
+pub const LIMB_FALSE: Limb = 0;
+
 
 #[cfg(target_pointer_width = "64")]
 #[derive(Debug, PartialEq)]
