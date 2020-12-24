@@ -237,7 +237,6 @@ fn norop_to_mont_sm2p256(
     mont_pro_sm2p256(r, a, CURVE_PARAMS.rr_p.as_ptr())
 }
 
-// todo a,b mut -> const
 fn norop_point_add_sm2p256(
     r: [*mut Limb; 3],
     a: [*const Limb; 3],
@@ -534,6 +533,8 @@ mod sm2p256_norop_test {
     use crate::ec::suite_b::ops::sm2p256_norop::*;
     use crate::ec::suite_b::private_key::affine_from_jacobian;
     use crate::ec::suite_b::ops::{sm2p256, Point};
+    use crate::{rand, signature};
+    use crate::signature::{ECDSA_SM2P256_SM3_ASN1, VerificationAlgorithm};
 
     #[test]
     fn norop_sqr_mul_sm2p256_test() {
@@ -709,6 +710,30 @@ mod sm2p256_norop_test {
         r.reverse();
         println!("sm2p256_calar_mul_rep_test: {:x?}", r);
     }
+
+    #[test]
+    fn sm2p256_signing_test() {
+        let rng = rand::SystemRandom::new();
+        let msg = b"hello world";
+
+        let prik = hex::decode("b8aa2a5bd9a9cf448984a247e63cb3878859d02b886e1bc63cd5c6dd46a744ab").unwrap();
+        let pubk = hex::decode("0479fff92a3df175895778dc9dcc825d95e8bb816c356d6c7390332294b3a20189bb24feac1a4a08ff614a4c514b985755948c0a4e49c0042e84078d4a23df6f7e").unwrap();
+
+        let signing_alg = &signature::ECDSA_SM2P256_SM3_ASN1_SIGNING;
+
+        let private_key =
+            signature::EcdsaKeyPair::from_private_key_and_public_key(signing_alg, &prik, &pubk)
+                .unwrap();
+        let sig = private_key.sign(&rng, msg).unwrap();
+
+        let verify_alg = &ECDSA_SM2P256_SM3_ASN1;
+
+        let _ = verify_alg.verify(
+            untrusted::Input::from(private_key.public_key()),
+            untrusted::Input::from(msg),
+            untrusted::Input::from(sig.as_ref())
+        );
+    }
 }
 
 #[cfg(feature = "internal_benches")]
@@ -827,13 +852,15 @@ mod bigint_benches {
         let a: &[Limb] = &[0xfaf037bfbc3be46a, 0x83bdc9ba2d8fa938, 0x5349d94b5788cd24, 0x0d7e9c18caa5736a];
         bench.iter(||
             {
-                unsafe {
-                    LIMBS_shl_mod(
-                        r.as_mut_ptr(),
-                        a.as_ptr(),
-                        CURVE_PARAMS.p.as_ptr(),
-                        CURVE_PARAMS.p.len(),
-                    )
+                for _ in 0..7 {
+                    unsafe {
+                        LIMBS_shl_mod(
+                            r.as_mut_ptr(),
+                            a.as_ptr(),
+                            CURVE_PARAMS.p.as_ptr(),
+                            CURVE_PARAMS.p.len(),
+                        )
+                    }
                 }
             });
     }
@@ -877,11 +904,15 @@ mod bigint_benches {
                 norop_point_mul_sm2p256(r, pro_g_2, scalar.as_ptr());
             });
     }
+
+    #[bench]
+    fn norop_point_mul_base_sm2p256_bench(bench: &mut test::Bencher) {
+        let lam: [Limb; 4] = [0, 0, 0, 0];
+        let scalar: &[Limb] = &[0xfffff8950000053b, 0xfffffdc600000543, 0xfffffb8c00000324, 0xfffffc4d0000064e];
+        bench.iter(||
+            {
+                let r: [*mut Limb; 3] = [lam.clone().as_mut_ptr(), lam.clone().as_mut_ptr(), lam.clone().as_mut_ptr()];
+                norop_point_mul_base_sm2p256(r, scalar.as_ptr());
+            });
+    }
 }
-
-// unsafe {
-// let r_ptr = r as *const u8;
-// let mut r_bz: &[u8] = slice::from_raw_parts(r_ptr, 32);
-// println!("{:x?}", r_bz);
-// }
-

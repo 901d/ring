@@ -103,6 +103,8 @@ mod internal_benches {
     use crate::ec::suite_b::ops::sm2p256_norop::{mont_pro_sm2p256_next, CURVE_PARAMS};
     use crate::{signature, rand};
     use crate::limb::Limb;
+    use crate::signature::VerificationAlgorithm;
+    use crate::ec::suite_b::ecdsa::verification::ECDSA_P256_SHA256_ASN1;
 
     extern crate test;
 
@@ -175,14 +177,38 @@ mod internal_benches {
         let prik = hex::decode("519b423d715f8b581f4fa8ee59f4771a5b44c8130b4e3eacca54a56dda72b464").unwrap();
         let pubk = hex::decode("041ccbe91c075fc7f4f033bfa248db8fccd3565de94bbfb12f3c59ff46c271bf83ce4014c68811f9a21a1fdb2c0e6113e06db7ca93b7404e78dc7ccd5ca89a4ca9").unwrap();
 
+        let private_key =
+            signature::EcdsaKeyPair::from_private_key_and_public_key(&signature::ECDSA_P256_SHA256_ASN1_SIGNING, &prik, &pubk)
+                .unwrap();
+
+        bench.iter(|| {
+            let _ = private_key.sign(&rng, &msg).unwrap();
+        });
+    }
+
+    #[bench]
+    fn p256_verify_bench(bench: &mut test::Bencher) {
+        let rng = rand::SystemRandom::new();
+        let msg = hex::decode("5905238877c774").unwrap();
+
+        let prik = hex::decode("519b423d715f8b581f4fa8ee59f4771a5b44c8130b4e3eacca54a56dda72b464").unwrap();
+        let pubk = hex::decode("041ccbe91c075fc7f4f033bfa248db8fccd3565de94bbfb12f3c59ff46c271bf83ce4014c68811f9a21a1fdb2c0e6113e06db7ca93b7404e78dc7ccd5ca89a4ca9").unwrap();
+
         let signing_alg = &signature::ECDSA_P256_SHA256_ASN1_SIGNING;
 
         let private_key =
             signature::EcdsaKeyPair::from_private_key_and_public_key(signing_alg, &prik, &pubk)
                 .unwrap();
+        let sig = private_key.sign(&rng, &msg).unwrap();
+
+        let verify_alg = &ECDSA_P256_SHA256_ASN1;
 
         bench.iter(|| {
-            let _ = private_key.sign(&rng, &msg).unwrap();
+            let _ = verify_alg.verify(
+                untrusted::Input::from(private_key.public_key()),
+                untrusted::Input::from(&msg),
+                untrusted::Input::from(sig.as_ref())
+            ).unwrap();
         });
     }
 
@@ -239,6 +265,26 @@ mod internal_benches {
         bench.iter(|| {
             unsafe {
                 GFp_nistz256_point_add(r.as_mut_ptr(), pro_g_2.as_ptr(), pro_g_2.as_ptr());
+            }
+        });
+    }
+
+    #[bench]
+    fn GFp_nistz256_point_double_bench(bench: &mut test::Bencher) {
+        extern "C" {
+            fn GFp_nistz256_point_double(
+                r: *mut Limb,   // [3][COMMON_OPS.num_limbs]
+                a: *const Limb, // [3][COMMON_OPS.num_limbs]
+            );
+        }
+
+        let r: &mut [Limb; 12] = &mut [0; 12];
+        let pro_g_2 = [0x18a9143c79e730d4, 0x5fedb60175ba95fc, 0x7762251079fb732b, 0xa53755c618905f76,
+            0xce95560addf25357, 0xba19e45c8b4ab8e4, 0xdd21f325d2e88688, 0x25885d858571ff18,
+            0x0000000000000001, 0xffffffff00000000, 0xffffffffffffffff, 0xfffffffe];
+        bench.iter(|| {
+            unsafe {
+                GFp_nistz256_point_double(r.as_mut_ptr(), pro_g_2.as_ptr());
             }
         });
     }

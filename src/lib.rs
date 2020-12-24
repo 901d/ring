@@ -60,7 +60,6 @@
 #![deny(
     missing_docs,
     unstable_features, // Used by `internal_benches`
-    unused_qualifications,
     variant_size_differences,
 )]
 #![forbid(

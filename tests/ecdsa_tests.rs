@@ -201,7 +201,7 @@ fn ecdsa_test_public_key_coverage() {
     const PUBLIC_KEY: &[u8] = include_bytes!("ecdsa_test_public_key_p256.der");
     const PUBLIC_KEY_DEBUG: &str = include_str!("ecdsa_test_public_key_p256_debug.txt");
 
-    let key_pair = signature::EcdsaKeyPair::from_pkcs8(
+    let key_pair = nisignature::EcdsaKeyPair::from_pkcs8(
         &signature::ECDSA_P256_SHA256_FIXED_SIGNING,
         PRIVATE_KEY,
     )
