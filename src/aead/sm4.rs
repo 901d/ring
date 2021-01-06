@@ -74,9 +74,9 @@ fn aead(
     let sm4cm = SM4CipherMode::new(sm4_key.value(), CipherMode::Cbc);
 
     if let Direction::Opening {..} = direction {
-        in_out.copy_from_slice(sm4cm.encrypt(in_out, counter.increment().into_block_less_safe().as_ref()).as_slice());
+        in_out.copy_from_slice(&sm4cm.encrypt(in_out, counter.increment().into_block_less_safe().as_ref()));
     } else {
-        in_out.copy_from_slice(sm4cm.decrypt(in_out, counter.increment().into_block_less_safe().as_ref()).as_slice());
+        in_out.copy_from_slice(&sm4cm.decrypt(in_out, counter.increment().into_block_less_safe().as_ref()));
     }
     let block = tag_iv.into_block_less_safe();
     Tag(block)
