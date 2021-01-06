@@ -12,6 +12,7 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+#[cfg(test)]
 mod test {
     use crate::ec::suite_b::ops::{norop256, p256, Elem};
     use crate::ec::suite_b::ops::sm2p256_norop::{mont_pro_sm2p256_next, CURVE_PARAMS};

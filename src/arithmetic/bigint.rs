@@ -1615,6 +1615,7 @@ mod tests {
         ];
 
         for (i, (r_input, a, w, expected_retval, expected_r)) in TEST_CASES.iter().enumerate() {
+            use std;
             let mut r = std::vec::Vec::from(*r_input);
             assert_eq!(r.len(), a.len()); // Sanity check
             let actual_retval =

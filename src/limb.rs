@@ -48,8 +48,10 @@ pub type DoubleLimb = u64;
 pub const LIMB_LENGTH: usize = 4;
 #[cfg(target_pointer_width = "32")]
 pub const LIMB_LENGTH: usize = 8;
+#[cfg(test)]
 #[cfg(target_pointer_width = "64")]
 pub const LIMB_TRUE: Limb = 0xffff_ffff_ffff_ffff;
+#[cfg(test)]
 #[cfg(target_pointer_width = "32")]
 pub const LIMB_TRUE: Limb = 0xffff_ffff;
 pub const LIMB_FALSE: Limb = 0;

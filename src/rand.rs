@@ -361,7 +361,6 @@ mod urandom {
 
     #[cfg_attr(any(target_os = "android", target_os = "linux"), cold, inline(never))]
     pub fn fill(dest: &mut [u8]) -> Result<(), error::Unspecified> {
-
         use once_cell::sync::Lazy;
 
         static FILE: Lazy<Result<std::fs::File, std::io::Error>> =

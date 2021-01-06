@@ -16,21 +16,15 @@
 #![allow(dead_code)]
 
 use super::digest_scalar::digest_scalar;
-use crate::{
-    arithmetic::montgomery::*,
-    cpu, digest,
-    ec::{
-        self,
-        suite_b::{ops::*, private_key},
-    },
-    error,
-    io::der,
-    limb, pkcs8, rand, sealed, signature,
-};
+use crate::{arithmetic::montgomery::*, cpu, digest, ec::{
+    self,
+    suite_b::{ops::*, private_key},
+}, error, io::der, limb, pkcs8, rand, sealed, signature};
 use untrusted;
 use core::marker::PhantomData;
 use crate::ec::suite_b::ecdsa::verification::EcdsaVerificationAlgorithm;
 use crate::limb::parse_big_endian_and_pad_consttime;
+use crate::agreement::{self, EphemeralPrivateKey};
 
 /// An ECDSA signing algorithm.
 pub struct EcdsaSigningAlgorithm {
@@ -399,6 +393,21 @@ impl EcdsaKeyPair {
             (alg.format_rs)(alg.private_scalar_ops.scalar_ops, &r, &s, sig_bytes)
         }))
     }
+}
+
+/// decode
+pub fn from_pkcs8_to_ep(
+    alg: &'static EcdsaSigningAlgorithm,
+    pkcs8: &[u8],
+) -> Result<EphemeralPrivateKey, error::Unspecified> {
+    let key_pair = ec::suite_b::key_pair_from_pkcs8(
+        alg.curve,
+        alg.pkcs8_template,
+        untrusted::Input::from(pkcs8),
+        cpu::features(),
+    )?;
+    let (seed, _) = key_pair.split();
+    EphemeralPrivateKey::new(seed, &agreement::ECDH_SM2P256)
 }
 
 /// Generates an ECDSA nonce in a way that attempts to protect against a faulty

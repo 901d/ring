@@ -12,6 +12,8 @@
 // OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 // CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
+#![allow(dead_code)]
+
 use crate::ec::suite_b::ops::norop256::{norop256_limbs_sub_mod, norop256_limbs_add_mod};
 use crate::limb::{Limb, LimbMask, LIMB_FALSE, LIMB_LENGTH};
 use crate::c;

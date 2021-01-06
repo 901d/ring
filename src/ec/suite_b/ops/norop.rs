@@ -517,6 +517,7 @@ fn norop_scalar_to_mont_sm2p256(a: &BigUint) -> BigUint {
     norop_scalar_mont_pro_sm2p256(a, &SM2P256_CTX.rr_n)
 }
 
+#[cfg(test)]
 mod test {
     use num_bigint::BigUint;
     use crate::ec::suite_b::ops::norop::*;

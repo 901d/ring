@@ -20,6 +20,7 @@ impl KeyPair {
     }
 }
 
+#[derive(Clone)]
 pub struct Seed {
     bytes: [u8; SEED_MAX_BYTES],
     curve: &'static Curve,

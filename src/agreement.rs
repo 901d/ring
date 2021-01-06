@@ -92,6 +92,7 @@ impl PartialEq for Algorithm {
 /// An ephemeral private key for use (only) with `agree_ephemeral`. The
 /// signature of `agree_ephemeral` ensures that an `EphemeralPrivateKey` can be
 /// used for at most one key agreement.
+#[derive(Clone)]
 pub struct EphemeralPrivateKey {
     private_key: ec::Seed,
     algorithm: &'static Algorithm,
@@ -104,6 +105,17 @@ derive_debug_via_field!(
 );
 
 impl EphemeralPrivateKey {
+    /// use raw data to construct EphemeralPrivateKey
+    pub fn new(
+        private_key: ec::Seed,
+        algorithm: &'static Algorithm,
+    ) -> Result<Self, error::Unspecified> {
+        Ok(Self {
+            private_key,
+            algorithm
+        })
+    }
+
     /// Generate a new ephemeral private key for the given algorithm.
     pub fn generate(
         alg: &'static Algorithm,

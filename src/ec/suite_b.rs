@@ -17,6 +17,7 @@
 use self::ops::*;
 use crate::{arithmetic::montgomery::*, cpu, ec, error, io::der, limb::LimbMask, pkcs8};
 use untrusted;
+#[cfg(test)]
 use std::marker::PhantomData;
 
 // NIST SP 800-56A Step 3: "If q is an odd prime p, verify that

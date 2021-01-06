@@ -7,12 +7,12 @@ use crate::endian::BigEndian;
 const KEY_LEN: usize = 16;
 
 /// SM4 with cfb mod
-pub static SM4_CFB: aead::Algorithm = aead::Algorithm {
+pub static SM4_CBC: aead::Algorithm = aead::Algorithm {
     key_len: 16,
     init: init_key,
-    seal: sm4_cfb_seal,
-    open: sm4_cfb_open,
-    id: aead::AlgorithmID::SM4_CFB,
+    seal: sm4_cbc_seal,
+    open: sm4_cbc_open,
+    id: aead::AlgorithmID::SM4_CBC,
     max_input_len: super::max_input_len(16, 2),
 };
 
@@ -31,10 +31,10 @@ impl Key {
 }
 
 fn init_key(key: &[u8], _cpu_features: cpu::Features) -> Result<KeyInner, error::Unspecified> {
-    Ok(KeyInner::SM4CFB(Key::from(key)))
+    Ok(KeyInner::SM4CBC(Key::from(key)))
 }
 
-fn sm4_cfb_seal(
+fn sm4_cbc_seal(
     key: &KeyInner,
     nonce: Nonce,
     aad: Aad<&[u8]>,
@@ -44,7 +44,7 @@ fn sm4_cfb_seal(
     aead(key, nonce, aad, in_out, Direction::Sealing, cpu_features)
 }
 
-fn sm4_cfb_open(
+fn sm4_cbc_open(
     key: &KeyInner,
     nonce: Nonce,
     aad: Aad<&[u8]>,
@@ -65,13 +65,13 @@ fn aead(
     _todo: cpu::Features,
 ) -> Tag {
     let sm4_key = match key {
-        KeyInner::SM4CFB(key) => key,
+        KeyInner::SM4CBC(key) => key,
         _ => unreachable!(),
     };
 
     let mut counter: Counter<BigEndian<u32>> = Counter::one(nonce);
     let tag_iv = counter.increment();
-    let sm4cm = SM4CipherMode::new(sm4_key.value(), CipherMode::Cfb);
+    let sm4cm = SM4CipherMode::new(sm4_key.value(), CipherMode::Cbc);
 
     if let Direction::Opening {..} = direction {
         in_out.copy_from_slice(sm4cm.encrypt(in_out, counter.increment().into_block_less_safe().as_ref()).as_slice());

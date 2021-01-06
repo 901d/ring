@@ -295,7 +295,7 @@ name = "ring"
 
 [dependencies]
 untrusted = { version = "0.7.1" }
-libsm = { git = "https://github.com/citahub/libsm", branch = "smx" }
+libsm = { git = "https://github.com/citahub/libsm", branch = "master" }
 num-bigint = "0.2"
 num-traits = "0.2.11"
 hex = "0.3"
