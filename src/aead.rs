@@ -28,7 +28,6 @@ use core::ops::RangeFrom;
 pub use self::{
     aes_gcm::{AES_128_GCM, AES_256_GCM},
     chacha20_poly1305::CHACHA20_POLY1305,
-    sm4::SM4_CBC,
     nonce::{Nonce, NONCE_LEN},
 };
 
@@ -403,7 +402,6 @@ impl core::fmt::Debug for UnboundKey {
 enum KeyInner {
     AesGcm(aes_gcm::Key),
     ChaCha20Poly1305(chacha20_poly1305::Key),
-    SM4CBC(sm4::Key),
 }
 
 impl UnboundKey {
@@ -624,7 +622,6 @@ enum AlgorithmID {
     AES_128_GCM,
     AES_256_GCM,
     CHACHA20_POLY1305,
-    SM4_CBC,
 }
 
 impl PartialEq for Algorithm {
@@ -678,4 +675,3 @@ mod nonce;
 mod poly1305;
 pub mod quic;
 mod shift;
-mod sm4;
