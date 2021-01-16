@@ -18,6 +18,8 @@ mod test {
     use crate::arithmetic::montgomery::R;
     use crate::ec::suite_b::ops::norop256::{norop256_add_u128, norop256_limbs_add_mod, norop256_limbs_sub_mod};
     use crate::limb::Limb;
+    use crate::{rand, signature};
+    use crate::signature::{ECDSA_SM2P256_SM3_ASN1, VerificationAlgorithm};
 
     #[test]
     fn norop256_mul_test() {
@@ -93,6 +95,28 @@ mod test {
         let a: Elem<R> = Elem::zero();
         let b: Elem<R> = Elem::zero();
         let _ = p256::COMMON_OPS.elem_product(&a, &b);
+    }
+    #[test]
+    fn sm2p256_signing_verify_test() {
+        let rng = rand::SystemRandom::new();
+        let msg = b"hello world";
+
+        let prik = hex::decode("b8aa2a5bd9a9cf448984a247e63cb3878859d02b886e1bc63cd5c6dd46a744ab").unwrap();
+        let pubk = hex::decode("0479fff92a3df175895778dc9dcc825d95e8bb816c356d6c7390332294b3a20189bb24feac1a4a08ff614a4c514b985755948c0a4e49c0042e84078d4a23df6f7e").unwrap();
+
+        let signing_alg = &signature::ECDSA_SM2P256_SM3_ASN1_SIGNING;
+
+        let private_key =
+            signature::EcdsaKeyPair::from_private_key_and_public_key(signing_alg, &prik, &pubk)
+                .unwrap();
+
+        let sig = private_key.sign(&rng, msg).unwrap();
+
+        ECDSA_SM2P256_SM3_ASN1.verify(
+            untrusted::Input::from(private_key.public_key()),
+            untrusted::Input::from(msg),
+            untrusted::Input::from(sig.as_ref())
+        ).unwrap();
     }
 }
 
